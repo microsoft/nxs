@@ -1,33 +1,55 @@
-# Project
+# NXS: Network eXecution Service
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+NXS inference engine provides optimized inference runtime for both CPUs/GPUs using TVM compilation technique for both cloud and edge scenarios.
 
-As the maintainer of this project, please make a few updates:
+NXS allows users to register models and run inferences remotely via HTTP/REST frontends. It was desgined to allow developers to extend its capabilities easily such as scheduling algorithms, custom log collectors, etc...
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+## Features
+- **TVM Optimized models.** NXS allows users to leverage TVM compiler to optimize models for a particular target device and deploy them on NXS for efficient inference.
+- **Multiple frameworks.** NXS supports serveral well-known DL frameworks such as ONNX, TensorFlow to let users onboard vast amount of existings models. Furthermore, developers can easily extend the support of new frameworks due to NXS flexible and extendable design.
+- **Batching** NXS allows requests to be batched to improve the througput of system if batching is supported.
+- **Multiple sessions** NXS allows models to be shared and batched across multiple users/sessions. Each session might have different requirements such as SLA which NXS scheduler/dispatcher will have to consider independently. 
+- **Pipeline execution** NXS was designed for many different usecases. 1) It can support single model execution such as classifier/detection models. 2) It can support backbone and heads design so users can execute a shared backend across many requests to extract features and route output features to coressponding head models to finalize the inferences.
+- **Extendable design** NXS was designed to be extended to be used in many other usecases. Developers can easily extend NXS's interfaces to deploy new scheduling/dispatching policies, collect new types of logs or even support new DL frameworks.
+- **Live model update** NXS helps developers to conveniently add or update model and its preprocessing/postprocessing code live without taking down the system for upgrade. This feature allows NXS to expand its capbabilities without interfering the current users.
 
-## Contributing
+## Get Started
+### Build NXS-Edge container
+```
+cd code
+docker build -f Dockerfile.edge -t nxs:v0.1 .
+```
+### Start NXS-Edge container
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
+The command below requires nvidia-docker. Check [this page](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) for installation instruction.
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+Make sure there is a GPU available to be used. Nvidia T4 is recommened.
+
+```
+docker run -d --gpus=all -p 8080:80 nxs:v0.1
+```
+
+### Register and Run Yolov4 Object Detector
+
+Register yolov4 model
+```
+cd code
+python examples/yolov4/register.py --model_url "https://github.com/onnx/models/blob/main/vision/object_detection_segmentation/yolov4/model/yolov4.onnx"
+```
+The program will return a generated PIPELINE_UUID to be used for doing inferences.
+
+Trigger inference on NXS
+```
+cd code
+python examples/yolov4/infer.py --nxs_url "http://localhost:8080" --image_url "https://www.maxpixel.net/static/photo/1x/Dog-Cat-Friendship-Pets-Dachshund-Dog-Game-Cat-2059668.jpg" --pipeline_uuid $PIPELINE_UUID
+```
+
+## Code of Conduct
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/)
+or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-## Trademarks
+## License
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
-trademarks or logos is subject to and must follow 
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+This project is licensed under the [MIT License](LICENSE).
