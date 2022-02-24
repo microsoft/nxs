@@ -38,7 +38,7 @@ python examples/yolov4/register.py --model_url "https://github.com/onnx/models/b
 ```
 The program will return a generated PIPELINE_UUID to be used for doing inferences.
 
-Trigger inference on NXS
+### Trigger inference on NXS
 ```
 cd code
 python examples/yolov4/infer.py --nxs_url "http://localhost:8080" --image_url "https://www.maxpixel.net/static/photo/1x/Dog-Cat-Friendship-Pets-Dachshund-Dog-Game-Cat-2059668.jpg" --pipeline_uuid $PIPELINE_UUID
