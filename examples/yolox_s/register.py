@@ -135,8 +135,8 @@ def main():
         "batching": True,
         "crossRequestsBatching": True,
         "url": args.model_url,
-        "preprocUrl": "https://raw.githubusercontent.com/microsoft/nxs/main/assets/w4preprocessing/yolox.py",
-        "postprocUrl": "https://raw.githubusercontent.com/microsoft/nxs/main/assets/w4postprocessing/yolox.py",
+        "preprocUrl": "https://raw.githubusercontent.com/microsoft/nxs/main/examples/yolox_s/yolox_preprocessing.py",
+        "postprocUrl": "https://raw.githubusercontent.com/microsoft/nxs/main/examples/yolox_s/yolox_postprocessing.py",
         "transfromUrl": "",
     }
 
