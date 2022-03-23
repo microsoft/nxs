@@ -16,8 +16,7 @@ NXS allows users to register models and run inferences remotely via HTTP/REST fr
 ## Get Started
 ### Build NXS-Edge container
 ```
-cd code
-docker build -f Dockerfile.edge -t nxs:v0.1 .
+docker build -f Dockerfile.edge -t nxs/edge .
 ```
 ### Start NXS-Edge container
 
@@ -26,22 +25,38 @@ The command below requires nvidia-docker. Check [this page](https://docs.nvidia.
 Make sure there is a GPU available to be used. Nvidia T4 is recommened.
 
 ```
-docker run -d --gpus=all -p 8080:80 nxs:v0.1
+export API_KEY="YOUR_API_KEY"
+docker run -d --privileged --gpus=all -p 8080:80 -e API_KEY=$API_KEY nxs/edge
 ```
 
-### Register and Run Yolov4 Object Detector
+Note: To keep all your models persistant, map local paths to /app/tmp/db and /app/tmp/local
+```
+export API_KEY="YOUR_API_KEY"
+export LOCAL_DB_PATH="$(pwd)/nxs_storage/db"
+export LOCAL_STORAGE_PATH="$(pwd)/nxs_storage/local"
+mkdir -p $LOCAL_DB_PATH
+mkdir -p $LOCAL_STORAGE_PATH
+docker run -d --privileged --gpus=all -p 8080:80 -e API_KEY=$API_KEY -v $LOCAL_DB_PATH:/app/tmp/db -v $LOCAL_STORAGE_PATH:/app/tmp/local nxs/edge
+```
 
-Register yolov4 model
+### Register and Run Yolox-s Object Detector
+
+Register [Yolox-s](https://github.com/Megvii-BaseDetection/YOLOX/tree/main/demo/ONNXRuntime) model 
 ```
-cd code
-python examples/yolov4/register.py --model_url "https://github.com/onnx/models/blob/main/vision/object_detection_segmentation/yolov4/model/yolov4.onnx"
+python examples/yolox_s/register.py --nxs_url http://localhost:8080 --nxs_api_key $API_KEY --model_url "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_s.onnx"
 ```
-The program will return a generated PIPELINE_UUID to be used for doing inferences.
+The program will return a generated "PIPELINE_UUID" to be used for doing inferences.
 
 ### Trigger inference on NXS
+
+Change PIPELINE_UUID to the output of previous step.
 ```
-cd code
-python examples/yolov4/infer.py --nxs_url "http://localhost:8080" --image_url "https://www.maxpixel.net/static/photo/1x/Dog-Cat-Friendship-Pets-Dachshund-Dog-Game-Cat-2059668.jpg" --pipeline_uuid $PIPELINE_UUID
+python examples/yolox_s/run_infer.py --nxs_url "http://localhost:8080" --nxs_api_key $API_KEY --image_path "https://www.maxpixel.net/static/photo/1x/Dog-Cat-Friendship-Pets-Dachshund-Dog-Game-Cat-2059668.jpg" --pipeline_uuid PIPELINE_UUID
+```
+
+### Swagger page
+```
+http://localhost:8080/docs
 ```
 
 ## Code of Conduct
