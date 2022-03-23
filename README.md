@@ -1,4 +1,4 @@
-# NXS: Network eXecution Service
+# NXS: nerual Network eXecution Service
 
 NXS inference engine provides optimized inference runtime for both CPUs/GPUs using TVM compilation technique for both cloud and edge scenarios.
 
