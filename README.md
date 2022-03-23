@@ -49,7 +49,7 @@ The program will return a generated "PIPELINE_UUID" to be used for doing inferen
 
 ### Trigger inference on NXS
 
-Change PIPELINE_UUID to the output of previous step.
+Change PIPELINE_UUID to the output from previous step.
 ```
 python examples/yolox_s/run_infer.py --nxs_url "http://localhost:8080" --nxs_api_key $API_KEY --image_path "https://www.maxpixel.net/static/photo/1x/Dog-Cat-Friendship-Pets-Dachshund-Dog-Game-Cat-2059668.jpg" --pipeline_uuid PIPELINE_UUID
 ```
