@@ -10,7 +10,7 @@ def send_post_request(url, payload={}, headers={}, timeout=60000):
 def main():
 
     parser = argparse.ArgumentParser(description="NXS Example")
-    parser.add_argument("--nxs_url", type=str, default="http://localhost:8080/api")
+    parser.add_argument("--nxs_url", type=str, default="http://localhost:8080")
     parser.add_argument("--nxs_api_key", type=str, default="nexus3_123")
     parser.add_argument("--model_url", type=str)
     args = parser.parse_args()
@@ -141,14 +141,14 @@ def main():
     }
 
     # register the model
-    MODEL_REGISTRATION_API = f"{args.nxs_url}/v2/models/register"
+    MODEL_REGISTRATION_API = f"{args.nxs_url}/api/v2/models/register"
     model_registration_result = send_post_request(
         MODEL_REGISTRATION_API, model_desc, {"x-api-key": args.nxs_api_key}
     )
 
     model_uuid = model_registration_result["modelUuid"]
     # register the pipeline
-    PIPELINE_REGISTRATION_API = f"{args.nxs_url}/v2/pipelines/register"
+    PIPELINE_REGISTRATION_API = f"{args.nxs_url}/api/v2/pipelines/register"
 
     pipeline_desc = {
         "userName": "nxs-admin",
