@@ -22,7 +22,7 @@ docker build -f Dockerfile.edge -t nxs/edge .
 
 The command below requires nvidia-docker. Check [this page](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) for installation instruction.
 
-Make sure there is a GPU available to be used. Nvidia T4 is recommened.
+Make sure there is a GPU available to be used. Nvidia T4 is recommended.
 
 ```
 export API_KEY="YOUR_API_KEY"
