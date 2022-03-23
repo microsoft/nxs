@@ -1,0 +1,60 @@
+{
+    "memory_layout": "NCHW",
+    "inputs": [
+        {
+            "name": "images",
+            "shape": [
+                -1,
+                3,
+                640,
+                640
+            ],
+            "dtype": "float32"
+        }
+    ],
+    "outputs": [
+        {
+            "name": "output"
+        }
+    ],
+    "batching": "True",
+    "use_gpu": "True",
+    "cross_requests_batching": "True",
+    "profile": {
+        "640": [
+            {
+                "batchSize": 1,
+                "fps": 120.46503485808401,
+                "latencyE2e": {
+                    "mean": 8.301163911819458,
+                    "std": 0.41410588490475986,
+                    "min": 8.12220573425293,
+                    "max": 14.681816101074219
+                },
+                "gpuMemUsage": 789.0
+            },
+            {
+                "batchSize": 2,
+                "fps": 139.10747596917577,
+                "latencyE2e": {
+                    "mean": 14.37737250328064,
+                    "std": 0.22747975522105987,
+                    "min": 13.72385025024414,
+                    "max": 17.673015594482422
+                },
+                "gpuMemUsage": 917.0
+            },
+            {
+                "batchSize": 3,
+                "fps": 148.55606286821322,
+                "latencyE2e": {
+                    "mean": 20.194396257400513,
+                    "std": 0.16813293006947114,
+                    "min": 19.789934158325195,
+                    "max": 21.437406539916992
+                },
+                "gpuMemUsage": 917.0
+            }
+        ]
+    }
+}

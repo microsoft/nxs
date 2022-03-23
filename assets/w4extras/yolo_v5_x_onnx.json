@@ -1,0 +1,38 @@
+{
+    "memory_layout": "NCHW",
+    "inputs": [
+        {
+            "name": "images",
+            "shape": [
+                -1,
+                3,
+                640,
+                640
+            ],
+            "dtype": "float32"
+        }
+    ],
+    "outputs": [
+        {
+            "name": "output"
+        }
+    ],
+    "batching": "True",
+    "use_gpu": "True",
+    "cross_requests_batching": "True",
+    "profile": {
+        "640": [
+            {
+                "batchSize": 1,
+                "fps": 17.060119248911793,
+                "latencyE2e": {
+                    "mean": 58.61623740196228,
+                    "std": 0.7863256425751889,
+                    "min": 53.342580795288086,
+                    "max": 61.57040596008301
+                },
+                "gpuMemUsage": 1687.0
+            }
+        ]
+    }
+}
