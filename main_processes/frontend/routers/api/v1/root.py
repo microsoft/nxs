@@ -162,7 +162,7 @@ def _reconstruct_v1_detector_result(infer_result: NxsInferResult):
                     "rel_left": det.bbox.left,
                     "rel_right": det.bbox.right,
                     "rel_top": det.bbox.top,
-                    "rel_bottom": det.bbox.bottom,
+                    "ref_bottom": det.bbox.bottom,
                 },
             }
         )
