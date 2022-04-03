@@ -159,10 +159,10 @@ def _reconstruct_v1_detector_result(infer_result: NxsInferResult):
                     "bottom": det.bbox.bottom,
                 },
                 "rel_bbox": {
-                    "rel_left": det.bbox.left,
-                    "rel_right": det.bbox.right,
-                    "rel_top": det.bbox.top,
-                    "ref_bottom": det.bbox.bottom,
+                    "rel_left": det.rel_bbox.left,
+                    "rel_right": det.rel_bbox.right,
+                    "rel_top": det.rel_bbox.top,
+                    "ref_bottom": det.rel_bbox.bottom,
                 },
             }
         )
