@@ -6,7 +6,7 @@ pymongo==3.10.1
 azure-cosmos==4.0.0
 azure-storage-blob==12.8.1
 azure-storage-queue==2.1.0
-opencv-python==4.2.0.34
+opencv-python==4.5.2.52
 xxhash==1.4.3
 aiohttp==3.7.4
 psutil==5.7.2
