@@ -144,6 +144,7 @@ async def submit_model(
         delete_dir(model_tmp_dir)
 
 
+"""
 @router.post("/register-from-files")
 async def infer_from_file(
     registering_model: NxsBaseModel,
@@ -210,6 +211,7 @@ async def infer_from_file(
     )
 
     return NxsModelRegistrationResponse(model_uuid=model_uuid)
+"""
 
 
 @router.post("/register-w4-model", response_model=NxsPipelineRegistrationResponse)
