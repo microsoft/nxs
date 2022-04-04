@@ -1,6 +1,6 @@
 import numpy as np
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 from nxs_types import DataModel
 
 
@@ -17,9 +17,16 @@ class NxsInferStatus(str, Enum):
     COMPLETED = "COMPLETED"
 
 
+class NxsInferExtraParams(DataModel):
+    preproc: Dict[str, str] = {}
+    transform: Dict[str, str] = {}
+    postproc: Dict[str, str] = {}
+
+
 class NxsInferInputBase(DataModel):
     pipeline_uuid: str
     session_uuid: str = "global"
+    extra_params: NxsInferExtraParams = NxsInferExtraParams()
 
 
 class NxsInferImageInputFromUrl(NxsInferInputBase):
