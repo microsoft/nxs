@@ -33,6 +33,7 @@ from nxs_types.frontend import (
 from nxs_types.infer import (
     NxsInferBatchImageInputFromAzureBlobstore,
     NxsInferBatchImageInputFromUrl,
+    NxsInferExtraParams,
     NxsInferImageInputFromAzureBlobstore,
     NxsInferImageInputFromUrl,
     NxsInferInput,
@@ -261,10 +262,20 @@ async def submit_image_task(
     pipeline_uuid: str,
     session_uuid: str = "global",
     file: UploadFile = File(...),
+    extra_params_json_str: str = '{"preproc": {}, "postproc": {}, "transform": {}}',
     authenticated: bool = Depends(check_api_key),
 ):
     image_bin = await file.read()
-    res = await _infer_single(image_bin, pipeline_uuid, session_uuid)
+
+    extra_params = {}
+    try:
+        extra_params = json.loads(extra_params_json_str)
+    except:
+        pass
+
+    extra_params = NxsInferExtraParams(**extra_params)
+
+    res = await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
     return res
 
 
@@ -274,7 +285,10 @@ async def submit_image_task_from_url(
     authenticated: bool = Depends(check_api_key),
 ):
     return await process_image_task_from_url(
-        infer_info.pipeline_uuid, infer_info.session_uuid, infer_info.url
+        infer_info.pipeline_uuid,
+        infer_info.session_uuid,
+        infer_info.url,
+        infer_info.extra_params,
     )
 
 
@@ -287,7 +301,10 @@ async def submit_batch_image_task_from_url(
     for url in infer_info.urls:
         tasks.append(
             process_image_task_from_url(
-                infer_info.pipeline_uuid, infer_info.session_uuid, url
+                infer_info.pipeline_uuid,
+                infer_info.session_uuid,
+                url,
+                infer_info.extra_params,
             )
         )
 
@@ -295,11 +312,14 @@ async def submit_batch_image_task_from_url(
 
 
 async def process_image_task_from_url(
-    pipeline_uuid: str, session_uuid: str, url: str
+    pipeline_uuid: str,
+    session_uuid: str,
+    url: str,
+    extra_params: NxsInferExtraParams = NxsInferExtraParams(),
 ) -> NxsInferResult:
     try:
         image_bin = await async_download_to_memory(url)
-        return await _infer_single(image_bin, pipeline_uuid, session_uuid)
+        return await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
     except Exception as e:
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -324,6 +344,7 @@ async def submit_image_task_from_azure_blobstore(
         infer_info.session_uuid,
         infer_info.blobstore_path,
         external_model_store,
+        infer_info.extra_params,
     )
 
     await external_model_store.close()
@@ -350,6 +371,7 @@ async def submit_batch_image_task_from_azure_blobstore(
                 infer_info.session_uuid,
                 blobstore_path,
                 external_model_store,
+                infer_info.extra_params,
             )
         )
 
@@ -365,10 +387,11 @@ async def process_image_task_from_azure_blobstore(
     session_uuid: str,
     blobstore_path: str,
     external_model_store: NxsAsyncAzureBlobStorage,
+    extra_params: NxsInferExtraParams = NxsInferExtraParams(),
 ) -> NxsInferResult:
     try:
         image_bin = await external_model_store.download(blobstore_path)
-        return await _infer_single(image_bin, pipeline_uuid, session_uuid)
+        return await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
     except Exception as e:
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -455,7 +478,10 @@ if args.enable_benchmark_api:
 
 
 async def _infer_single(
-    data: Union[bytes, str], pipeline_uuid: str, session_uuid: str
+    data: Union[bytes, str],
+    pipeline_uuid: str,
+    session_uuid: str,
+    users_extra_params: NxsInferExtraParams = NxsInferExtraParams(),
 ) -> NxsInferResult:
     global tasks_data, shared_queue_pusher, task_result_dict, tasks_summary_data
     global task_summary_processor, session_params, redis_kv_server
@@ -504,7 +530,7 @@ async def _infer_single(
 
     next_topic = pipeline_uuids.pop(0)
 
-    extra_params = _get_session_params(session_uuid)
+    _extra_params = _get_session_params(session_uuid)
     infer_task = NxsInferRequest(
         task_uuid=task_uuid,
         session_uuid=session_uuid,
@@ -516,7 +542,10 @@ async def _infer_single(
                 data=data,
             )
         ],
-        extra_params=json.dumps(extra_params),
+        extra_preproc_params=json.dumps(users_extra_params.preproc),
+        extra_transform_params=json.dumps(users_extra_params.transform),
+        extra_postproc_params=json.dumps(users_extra_params.postproc),
+        extra_params=json.dumps(_extra_params),
     )
 
     # shared_queue_pusher.push(next_topic, infer_task)
@@ -578,6 +607,9 @@ async def _infer_tensors(infer_request: NxsTensorsInferRequest):
         session_uuid=infer_request.session_uuid,
         exec_pipelines=pipeline_uuids,
         inputs=infer_request.inputs,
+        extra_preproc_params=infer_request.extra_preproc_params,
+        extra_transform_params=infer_request.extra_transform_params,
+        extra_postproc_params=infer_request.extra_postproc_params,
         extra_params=json.dumps(extra_params),
     )
 
