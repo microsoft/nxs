@@ -159,10 +159,11 @@ async def _register_pipeline(pipeline: NxsPipelineRegistrationRequest):
         "input_type": pipeline.input_type,
         "description": pipeline.description,
         "output_type": pipeline.output_type,
-        "preproc_params": pipeline.preproc_params,
-        "postproc_params": pipeline.postproc_params,
-        "transform_params": pipeline.transform_params,
+        "preproc_params": [params.dict() for params in pipeline.preproc_params],
+        "postproc_params": [params.dict() for params in pipeline.postproc_params],
+        "transform_params": [params.dict() for params in pipeline.transform_params],
     }
+
     if args.db_use_shard_key:
         data[args.db_shard_key] = args.db_shard_value
 
