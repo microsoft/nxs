@@ -56,17 +56,7 @@ async def get_public_models(
 
     query_results = db.query(MONGODB_PIPELINES_COLLECTION_NAME, query)
     for r in query_results:
-        results.append(
-            NxsPipelineDescription(
-                pipeline_uuid=r["pipeline_uuid"],
-                name=r.get("name", "N/A"),
-                accuracy=r.get("accuracy", "N/A"),
-                params=r.get("params", "N/A"),
-                flops=r.get("flops", "N/A"),
-                input_type=r.get("input_type", "N/A"),
-                description=r.get("description", "N/A"),
-            )
-        )
+        results.append(NxsPipelineDescription(**r))
 
     db.close()
 
