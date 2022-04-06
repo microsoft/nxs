@@ -121,3 +121,5 @@ Once the deployment is finished, there would be a keyvault under new resource gr
 Go to "Secrets", you'll find the url to the swagger page in "NxsSwaggerUrl" and the api key to access the APIs in "ApiKey".
 
 The base URL of NXS would be stored in "NxsUrl".
+
+Use the examples in [README](readme.md) to test the deployment.
