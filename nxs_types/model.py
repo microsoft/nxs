@@ -51,6 +51,14 @@ class ModelStatus(str, Enum):
     INVALID = "invalid"
 
 
+class PipelineOutputType(str, Enum):
+    CLASSIFICATION = "classification"
+    DETECTION = "detection"
+    OCR = "ocr"
+    EMBEDDING = "embedding"
+    CUSTOM = "custom"
+
+
 class LatencyMeasurement(DataModel):
     mean: float
     std: float
@@ -140,6 +148,11 @@ class NxsColocatedModels(DataModel):
     colocated_model_uuids: List[str]
 
 
+class PipelineExtraParamDescription(DataModel):
+    param: str
+    desc: str
+
+
 class NxsPipelineRegistrationRequest(DataModel):
     user_name: str
     pipeline_groups: List[NxsColocatedModels]
@@ -151,6 +164,10 @@ class NxsPipelineRegistrationRequest(DataModel):
     flops: str = "N/A"
     input_type: str = "N/A"
     description: str = "N/A"
+    output_type: PipelineOutputType = PipelineOutputType.CUSTOM
+    preproc_params: List[PipelineExtraParamDescription] = []
+    postproc_params: List[PipelineExtraParamDescription] = []
+    transform_params: List[PipelineExtraParamDescription] = []
 
 
 class NxsPipelineDescription(DataModel):
@@ -161,6 +178,10 @@ class NxsPipelineDescription(DataModel):
     flops: str = "N/A"
     input_type: str = "N/A"
     description: str = "N/A"
+    output_type: PipelineOutputType = PipelineOutputType.CUSTOM
+    preproc_params: List[PipelineExtraParamDescription] = []
+    postproc_params: List[PipelineExtraParamDescription] = []
+    transform_params: List[PipelineExtraParamDescription] = []
 
 
 class NxsPipelineRegistrationResponse(DataModel):
