@@ -53,7 +53,7 @@ def register_root_apis(router: APIRouter):
         registering_model: ModelRegistrationRequestv1,
         authenticated: bool = Depends(check_api_key),
     ):
-        res = await _register_w4_model_from_v1(registering_model)
+        res = await _register_w4_model_from_v1(registering_model, "classifier")
         return res
 
     @router.post("/register_detector_v1", deprecated=True)
@@ -61,7 +61,7 @@ def register_root_apis(router: APIRouter):
         registering_model: ModelRegistrationRequestv1,
         authenticated: bool = Depends(check_api_key),
     ):
-        res = await _register_w4_model_from_v1(registering_model)
+        res = await _register_w4_model_from_v1(registering_model, "detector")
         return res
 
 
@@ -105,7 +105,9 @@ async def infer_from_file(
         return {"error": str(e)}
 
 
-async def _register_w4_model_from_v1(registering_model: ModelRegistrationRequestv1):
+async def _register_w4_model_from_v1(
+    registering_model: ModelRegistrationRequestv1, registering_model_type: str
+):
     w4_registering_model = NxsW4ModelRegistrationRequest(
         user_name=registering_model.model_owner,
         model_name=registering_model.model_name,
@@ -115,7 +117,7 @@ async def _register_w4_model_from_v1(registering_model: ModelRegistrationRequest
         blobstore_path=registering_model.pixie_model_dir_path,
     )
     try:
-        res = await _register_w4_model(w4_registering_model)
+        res = await _register_w4_model(w4_registering_model, registering_model_type)
         return {"model_uuid": res.pipeline_uuid}
     except Exception as e:
         raise HTTPException(

@@ -217,10 +217,11 @@ async def infer_from_file(
 @router.post("/register-w4-model", response_model=NxsPipelineRegistrationResponse)
 async def register_w4_model(
     registering_model: NxsW4ModelRegistrationRequest,
+    registering_model_type: str,
     authenticated: bool = Depends(check_api_key),
 ):
     try:
-        return await _register_w4_model(registering_model)
+        return await _register_w4_model(registering_model, registering_model_type)
     except Exception as e:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -230,6 +231,7 @@ async def register_w4_model(
 
 async def _register_w4_model(
     registering_model: NxsW4ModelRegistrationRequest,
+    registering_model_type: str,
 ) -> NxsPipelineRegistrationResponse:
     model_uuid = generate_uuid()
 
@@ -404,9 +406,32 @@ async def _register_w4_model(
             base_model,
         )
 
+        pipeline_output_type = PipelineOutputType.CLASSIFICATION
+        if registering_model_type == "detector":
+            pipeline_output_type = PipelineOutputType.DETECTION
+
+        preproc_params_data = model_extras_info.get("preproc_params", {})
+        postproc_params_data = model_extras_info.get("postproc_params", {})
+        transform_params_data = model_extras_info.get("transform_params", {})
+
+        preproc_params: List[PipelineExtraParamDescription] = []
+        postproc_params: List[PipelineExtraParamDescription] = []
+        transform_params: List[PipelineExtraParamDescription] = []
+
+        for _params, data in zip(
+            [preproc_params, postproc_params, transform_params],
+            [preproc_params_data, postproc_params_data, transform_params_data],
+        ):
+            for k in data:
+                _params.append(PipelineExtraParamDescription(param=k, desc=data[k]))
+
         pipeline = NxsPipelineRegistrationRequest(
             user_name=registering_model.user_name,
             pipeline_groups=[NxsColocatedModels(colocated_model_uuids=[model_uuid])],
+            output_type=pipeline_output_type,
+            preproc_params=preproc_params,
+            postproc_params=postproc_params,
+            transform_params=transform_params,
         )
 
         return await _register_pipeline(pipeline)

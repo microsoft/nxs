@@ -158,6 +158,10 @@ async def _register_pipeline(pipeline: NxsPipelineRegistrationRequest):
         "flops": pipeline.flops,
         "input_type": pipeline.input_type,
         "description": pipeline.description,
+        "output_type": pipeline.output_type,
+        "preproc_params": pipeline.preproc_params,
+        "postproc_params": pipeline.postproc_params,
+        "transform_params": pipeline.transform_params,
     }
     if args.db_use_shard_key:
         data[args.db_shard_key] = args.db_shard_value
