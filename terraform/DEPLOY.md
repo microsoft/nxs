@@ -5,6 +5,8 @@
 
 ## Step 1: Build docker container
 
+NOTE: Container **MUST** be built on Linux.
+
 Create azure container registry to store container
 ```
 az login
@@ -26,10 +28,13 @@ az acr create --resource-group nxsrg --name $ACR_NAME --sku Basic
 
 NOTE: if "az acr create" fails, choose another name.
 
-Build container and push it to ACR
+Build container **ON LINUX** and push it to ACR
 ```
 # replace nxsacrxxx with the chosen name above
 docker build -f Dockerfile -t ${ACR_NAME}.azurecr.io/nxs/dev:v0.1.0 .
+
+# login into acr
+az acr login -n $ACR_NAME
 docker push ${ACR_NAME}.azurecr.io/nxs/dev:v0.1.0
 ```
 Go to [Azure Portal](https://ms.portal.azure.com/)
@@ -38,7 +43,7 @@ Search for "container registries", go to your created ACR above
 
 ![Alt text](images/0.jpg "ACR")
 
-***Choose "Access keys" and take note of "Login server", "Username" and "password".***
+***Choose "Access keys", enable "Admin user" and take note of "Login server", "Username" and "password".***
 
 ## Step 2: Create admin group as owner of NXS deployment
 Go to [Azure Portal](https://ms.portal.azure.com/)
@@ -94,7 +99,7 @@ output nxs_api_key {
 
 Edit terraform/modules/nxs-oss/aks_deployments/variables.tf
 ```
-Change "nxsacrxxx.azurecr.io" to the "Login server" in step 1. 
+Change ALL "nxsacrxxx.azurecr.io" to the "Login server" in step 1. 
 ```
 
 Deploy NXS
