@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vc-worker
+spec:
+  template:
+    spec:
+      containers:
+      - name: vc-job
+        image: xxxxxxxxxxxxx:v0.2.0
+        command: ["/bin/bash", "/app/run.sh"]
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 1
+            memory: "2Gi"
+          limits:
+            cpu: 1.5
+            memory: "3Gi"
+        env:
+        - name: VIDEO_UUID
+          value: "827b24db584746f19bcbf4fabd07c82f"
+        - name: DEBUG
+          value: "false"
+        - name: NXS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: NXS_URL
+        - name: NXS_API_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: NXS_API_KEY
+        - name: VC_BLOBSTORE_CONN_STR
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_BLOBSTORE_CONN_STR
+        - name: VC_BLOBSTORE_CONTAINER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_BLOBSTORE_CONTAINER_NAME
+        - name: VC_COSMOSDB_CONN_STR
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_COSMOSDB_CONN_STR
+        - name: VC_COSMOSDB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_COSMOSDB_NAME
+        - name: VC_DETECTOR_UUID
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_DETECTOR_UUID
+        - name: VC_TRACKER_UUID
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_TRACKER_UUID
+        - name: VC_REPORT_INTERVAL_SECS
+          valueFrom:
+            configMapKeyRef:
+              name: vc-config
+              key: VC_REPORT_INTERVAL_SECS   
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Never
+      nodeSelector:
+        restype: cpu

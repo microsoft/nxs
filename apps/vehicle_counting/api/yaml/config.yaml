@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vc-config
+  namespace: default
+data:
+  NXS_URL: ""
+  NXS_API_KEY: ""
+  VC_COSMOSDB_CONN_STR : ""
+  VC_COSMOSDB_NAME : ""
+  VC_BLOBSTORE_CONN_STR: ""
+  VC_BLOBSTORE_CONTAINER_NAME: ""  
+  VC_DETECTOR_UUID: "bbff897256c9431eb19a2ad311749b39"
+  VC_TRACKER_UUID: "451ffc2ee1594fe2a6ace17fca5117ab"
+  VC_REPORT_INTERVAL_SECS: "900"
