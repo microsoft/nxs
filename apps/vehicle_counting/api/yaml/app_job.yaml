@@ -2,13 +2,14 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: vc-worker
+  namespace: nxs
 spec:
   template:
     spec:
       containers:
       - name: vc-job
-        image: xxxxxxxxxxxxx:v0.2.0
-        command: ["/bin/bash", "/app/run.sh"]
+        image: ossnxs.azurecr.io/vc_worker:v0.1.1
+        command: ["/bin/bash", "apps/vehicle_counting/scripts/run_worker.sh"]
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -19,7 +20,7 @@ spec:
             memory: "3Gi"
         env:
         - name: VIDEO_UUID
-          value: "827b24db584746f19bcbf4fabd07c82f"
+          value: ""
         - name: DEBUG
           value: "false"
         - name: NXS_URL
