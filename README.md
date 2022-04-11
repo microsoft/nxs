@@ -60,9 +60,7 @@ http://localhost:8080/docs
 ```
 
 ## Deploy NXS on Azure
-```
-Coming soon
-```
+Check [DEPLOY](terraform/DEPLOY.md)
 
 ## Code of Conduct
 

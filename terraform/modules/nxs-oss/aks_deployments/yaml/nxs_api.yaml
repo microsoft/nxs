@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: nxs
+  name: nxs-api-servers
+  labels:
+    name: nxs-api-servers
+spec:
+  replicas: ${NUM_REPLICAS}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      name: nxs-api-servers-svc
+  template:
+    metadata:
+      labels:
+        name: nxs-api-servers-svc
+    spec:
+      subdomain: nxs
+      containers:
+      - image: ${IMAGE}:${IMAGE_TAG}
+        imagePullPolicy: IfNotPresent
+        name: nxs-api-server
+        resources:
+          requests:
+            cpu: ${CPU_REQUEST}
+            memory: ${MEMORY_REQUEST}
+          #limits:
+          #  cpu: 1.5
+          #  memory: "3.5Gi"
+        ports:
+        - containerPort: 80
+        command:
+          - "/bin/bash"
+          #- "-c"
+          #- "sleep 100000000"
+          - "/app/scripts/run_api.sh"
+        volumeMounts:
+        - name: kv-secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NEXUS_LOG_LEVEL
+          value: "INFO"
+        - name: ENABLE_API_V1
+          #value: "true"
+          value: "${ENABLE_API_V1}"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: API_KEY
+        - name: COSMOSDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: MONGODB_CONNECTION_STR
+        - name: COSMOSDB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: MONGODB_MAINDB_NAME
+        - name: BLOBSTORE_CONN_STR
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: BLOBSTORE_CONNECTION_STR
+        - name: BLOBSTORE_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: BLOBSTORE_CONTAINER_NAME
+        - name: REDIS_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: REDIS_ADDRESS
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: REDIS_PASSWORD
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: REDIS_PORT
+        - name: REDIS_USE_SSL
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: REDIS_USE_SSL
+        - name: TMP_DIR
+          value: "/app/tmp"
+        - name: API_SERVER_PORT
+          value: "80"
+      imagePullSecrets:
+      - name: regcred
+      nodeSelector:
+        restype: cpu
+      volumes:
+      - name: kv-secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "nxs-kv-sync"
