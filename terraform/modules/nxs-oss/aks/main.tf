@@ -14,8 +14,10 @@ resource "azurerm_kubernetes_cluster" "nxs_aks" {
 
   default_node_pool {
     name       = "cpupool1"
+    enable_auto_scaling = true
     vm_size    = var.aks_cpupool1_vm_size
-    node_count = var.aks_cpupool1_node_count    
+    min_count = var.aks_cpupool1_min_node_count    
+    max_count = var.aks_cpupool1_max_node_count
     node_labels = {
       "restype" : "cpu"
     }    
@@ -40,10 +42,12 @@ resource "azurerm_kubernetes_cluster" "nxs_aks" {
 
 # create t4-gpu-pool
 resource "azurerm_kubernetes_cluster_node_pool" "nxs_aks_gpupool1" {
-  name                  = "gpupool1"
+  name                  = "gpupool1"  
   kubernetes_cluster_id = azurerm_kubernetes_cluster.nxs_aks.id
+  enable_auto_scaling = true
   vm_size               = var.aks_gpupool1_vm_size
-  node_count            = var.aks_gpupool1_node_count
+  min_count            = var.aks_gpupool1_min_node_count
+  max_count            = var.aks_gpupool1_max_node_count
   node_labels = {
     "restype" : "gpu"
   }

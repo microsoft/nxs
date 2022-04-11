@@ -33,11 +33,11 @@ variable aks_configs_completed {
 
 variable nxs_api_image {
     type = string
-    default = "nxsacrxxx.azurecr.io/nxs/dev"
+    default = "ossnxs.azurecr.io/nxs/dev"
 }
 variable nxs_api_image_tag {
     type = string
-    default = "v0.1.0"
+    default = "v0.1.1"
 }
 variable nxs_api_cpu_requests {
     type = string
@@ -59,11 +59,11 @@ variable enable_api_v1 {
 
 variable nxs_scheduler_image {
     type = string
-    default = "nxsacrxxx.azurecr.io/nxs/dev"
+    default = "ossnxs.azurecr.io/nxs/dev"
 }
 variable nxs_scheduler_image_tag {
     type = string
-    default = "v0.1.0"
+    default = "v0.1.1"
 }
 variable nxs_scheduler_cpu_requests {
     type = string
@@ -76,11 +76,11 @@ variable nxs_scheduler_memory_requests {
 
 variable nxs_workload_manager_image {
     type = string
-    default = "nxsacrxxx.azurecr.io/nxs/dev"
+    default = "ossnxs.azurecr.io/nxs/dev"
 }
 variable nxs_workload_manager_image_tag {
     type = string
-    default = "v0.1.0"
+    default = "v0.1.1"
 }
 variable nxs_workload_manager_cpu_requests {
     type = string
@@ -93,11 +93,11 @@ variable nxs_workload_manager_memory_requests {
 
 variable nxs_backend_gpu_image {
     type = string
-    default = "nxsacrxxx.azurecr.io/nxs/dev"
+    default = "ossnxs.azurecr.io/nxs/dev"
 }
 variable nxs_backend_gpu_image_tag {
     type = string
-    default = "v0.1.0"
+    default = "v0.1.1"
 }
 variable nxs_backend_gpu_cpu_requests {
     type = string

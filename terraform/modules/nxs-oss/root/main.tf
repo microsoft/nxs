@@ -46,9 +46,11 @@ module aks {
   source = "../aks"
   base    = local.base_config  
   aks_cpupool1_vm_size = var.aks_cpu_node_vm_size
-  aks_cpupool1_node_count = var.aks_num_cpu_nodes
+  aks_cpupool1_min_node_count = var.aks_min_cpu_node_count
+  aks_cpupool1_max_node_count = var.aks_max_cpu_node_count
   aks_gpupool1_vm_size = var.aks_gpu_node_vm_size
-  aks_gpupool1_node_count = var.aks_num_gpu_nodes
+  aks_gpupool1_min_node_count = var.aks_min_gpu_node_count
+  aks_gpupool1_max_node_count = var.aks_max_gpu_node_count
 }
 
 module db {
@@ -155,7 +157,7 @@ module aks_deployments {
   aks_client_client_key = module.aks.aks_client_client_key
   aks_client_cluster_ca_certificate = module.aks.aks_client_cluster_ca_certificate
   aks_configs_completed = module.aks_configs.aks_configs_completed
-  nxs_backend_gpu_num_replicas = var.aks_num_gpu_nodes
+  nxs_backend_gpu_num_replicas = var.aks_min_gpu_node_count
   nxs_api_num_replicas = var.aks_num_api_containers
   enable_api_v1 = var.enable_api_v1
 }

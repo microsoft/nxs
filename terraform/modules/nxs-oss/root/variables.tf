@@ -67,9 +67,15 @@ variable aks_cpu_node_vm_size {
   default = "Standard_D2s_v4"
 }
 
-variable aks_num_cpu_nodes {
+variable aks_min_cpu_node_count {
   type = number
-  description = "Number of CPUs nodes to be used in NXS for scheduler, workload manager, api servers and cpu inference nodes."
+  description = "Minimum number of CPUs nodes to be used in NXS for scheduler, workload manager, api servers and cpu inference nodes."
+  default     = 3
+}
+
+variable aks_max_cpu_node_count {
+  type = number
+  description = "Maximum number of CPUs nodes to be used in NXS for scheduler, workload manager, api servers and cpu inference nodes."
   default     = 3
 }
 
@@ -79,9 +85,15 @@ variable aks_gpu_node_vm_size {
   default = "Standard_NC4as_T4_v3"
 }
 
-variable aks_num_gpu_nodes {
+variable aks_min_gpu_node_count {
   type = number
-  description = "Number of GPUs to be used in NXS"
+  description = "Min Number of GPUs to be used in NXS"
+  default     = 1
+}
+
+variable aks_max_gpu_node_count {
+  type = number
+  description = "Max Number of GPUs to be used in NXS"
   default     = 1
 }
 
