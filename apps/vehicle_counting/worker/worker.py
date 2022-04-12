@@ -703,6 +703,15 @@ def main():
     )
     args = parser.parse_args()
 
+    args.video_uuid = os.environ["VIDEO_UUID"]
+    args.nxs_url = os.environ["NXS_URL"]
+    args.nxs_api_key = os.environ["NXS_API_KEY"]
+    args.blobstore_conn_str = os.environ["BLOBSTORE_CONN_STR"]
+    args.blobstore_container = os.environ["BLOBSTORE_CONTAINER"]
+    args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
+    args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
+    
+
     try:
         db_client = NxsDbFactory.create_db(
             NxsDbType.MONGODB,

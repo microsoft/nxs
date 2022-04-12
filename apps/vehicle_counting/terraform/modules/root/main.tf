@@ -45,6 +45,10 @@ locals {
     acr_password = var.acr_password
     nxs_url = var.nxs_url
     nxs_api_key = var.nxs_api_key
+    nxsapp_api_container = var.nxsapp_api_container
+    nxsapp_worker_container = var.nxsapp_worker_container
+    nxs_detector_uuid = var.nxs_detector_uuid
+    nxs_tracker_uuid = var.nxs_tracker_uuid
   }
 }
 
@@ -97,6 +101,11 @@ module keyvault_secrets {
     NxsApiKey = var.nxs_api_key
     AksKubeConfig = module.aks.aks_base.kube_config
     AppUrl = module.aks.aks_base.domain_name_fqdn
+    AppApiContainer = var.nxsapp_api_container
+    AppWorkerContainer = var.nxsapp_worker_container
+    AppReportCountsInterval = var.app_report_counts_interval
+    NxsDetectorUUID = var.nxs_detector_uuid
+    NxsTrackerUUID = var.nxs_tracker_uuid    
   }
 }
 

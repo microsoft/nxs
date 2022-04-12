@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: vc-worker
-  namespace: vcapp
+  namespace: nxsapp
 spec:
   template:
     spec:
@@ -26,50 +26,50 @@ spec:
         - name: NXS_URL
           valueFrom:
             configMapKeyRef:
-              name: vc-config
+              name: nxsappkv
               key: NXS_URL
         - name: NXS_API_KEY
           valueFrom:
             configMapKeyRef:
-              name: vc-config
+              name: nxsappkv
               key: NXS_API_KEY
-        - name: VC_BLOBSTORE_CONN_STR
+        - name: COSMOSDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_CONNECTION_STR
+        - name: COSMOSDB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_MAINDB_NAME
+        - name: BLOBSTORE_CONN_STR
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONNECTION_STR
+        - name: BLOBSTORE_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONTAINER_NAME
+        - name: DETECTOR_UUID
           valueFrom:
             configMapKeyRef:
-              name: vc-config
-              key: VC_BLOBSTORE_CONN_STR
-        - name: VC_BLOBSTORE_CONTAINER_NAME
+              name: nxsappkv
+              key: NXS_DETECTOR_UUID
+        - name: TRACKER_UUID
           valueFrom:
             configMapKeyRef:
-              name: vc-config
-              key: VC_BLOBSTORE_CONTAINER_NAME
-        - name: VC_COSMOSDB_CONN_STR
+              name: nxsappkv
+              key: NXS_TRACKER_UUID
+        - name: REPORT_INTERVAL_SECS
           valueFrom:
             configMapKeyRef:
-              name: vc-config
-              key: VC_COSMOSDB_CONN_STR
-        - name: VC_COSMOSDB_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: vc-config
-              key: VC_COSMOSDB_NAME
-        - name: VC_DETECTOR_UUID
-          valueFrom:
-            configMapKeyRef:
-              name: vc-config
-              key: VC_DETECTOR_UUID
-        - name: VC_TRACKER_UUID
-          valueFrom:
-            configMapKeyRef:
-              name: vc-config
-              key: VC_TRACKER_UUID
-        - name: VC_REPORT_INTERVAL_SECS
-          valueFrom:
-            configMapKeyRef:
-              name: vc-config
-              key: VC_REPORT_INTERVAL_SECS   
+              name: nxsappkv
+              key: APP_REPORT_COUNTS_INTERVAL
       imagePullSecrets:
-      - name: vcregcred
+      - name: regcred
       restartPolicy: Never
       nodeSelector:
         restype: cpu

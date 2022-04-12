@@ -64,6 +64,33 @@ variable nxs_api_key {
   description = "Api key to access NXS cluster"
 }
 
+variable nxsapp_api_container {
+  type = string
+  description = "Location of api container in acr, e.g., ossnxs.azurecr.io/vcapi:v0.1"
+}
+
+variable nxsapp_worker_container {
+  type = string
+  description = "Location of worker container in acr, e.g., ossnxs.azurecr.io/vcworker:v0.1"
+}
+
+variable nxs_detector_uuid {
+  type = string
+  description = "UUID of object detector"
+  default = "bbff897256c9431eb19a2ad311749b39"
+}
+
+variable nxs_tracker_uuid {
+  type = string
+  description = "UUID of tracker"
+  default = "451ffc2ee1594fe2a6ace17fca5117ab"
+}
+
+variable app_report_counts_interval {
+  type = number
+  default = 900
+}
+
 ### Optional configurations ###
 
 variable aks_cpu_node_vm_size {

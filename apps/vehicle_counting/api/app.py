@@ -45,12 +45,20 @@ def generate_uuid() -> str:
 
 parser = argparse.ArgumentParser(description="Vehicle Counting App API")
 parser.add_argument("--port", type=int, default=80)
-parser.add_argument("--blobstore_conn_str", type=str)
-parser.add_argument("--blobstore_container", type=str)
-parser.add_argument("--cosmosdb_conn_str", type=str)
-parser.add_argument("--cosmosdb_db_name", type=str)
+parser.add_argument("--blobstore_conn_str", type=str, default="")
+parser.add_argument("--blobstore_container", type=str, default="")
+parser.add_argument("--cosmosdb_conn_str", type=str, default="")
+parser.add_argument("--cosmosdb_db_name", type=str, default="")
 parser.add_argument("--api_key", type=str, default="")
+parser.add_argument("--worker_container", type=str, default="")
 args = parser.parse_args()
+
+args.blobstore_conn_str = os.environ["BLOBSTORE_CONN_STR"]
+args.blobstore_container = os.environ["BLOBSTORE_CONTAINER"]
+args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
+args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
+args.api_key = os.environ["API_KEY"]
+args.worker_container = os.environ["WORKER_CONTAINER"]
 
 
 DB_TASKS_COLLECTION_NAME = "tasks"
@@ -123,6 +131,7 @@ def submit_video(
     yaml_path = os.path.join(cur_dir_abs_path, f"yaml/app_job.yaml")
     yaml_data = yaml.safe_load(open(yaml_path))
     yaml_data["metadata"]["name"] = f"{video_uuid}"
+    yaml_data["spec"]["template"]["spec"]["containers"][0]["image"] = args.worker_container
     yaml_data["spec"]["template"]["spec"]["containers"][0]["env"][0][
         "value"
     ] = video_uuid

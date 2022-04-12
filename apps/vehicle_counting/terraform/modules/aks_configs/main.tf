@@ -95,6 +95,26 @@ spec:
           objectName: AksKubeConfig
           objectType: secret
           objectVersion: ""
+        - |
+          objectName: AppApiContainer
+          objectType: secret
+          objectVersion: ""
+        - |
+          objectName: AppWorkerContainer
+          objectType: secret
+          objectVersion: ""
+        - |
+          objectName: AppReportCountsInterval
+          objectType: secret
+          objectVersion: ""
+        - |
+          objectName: NxsDetectorUUID
+          objectType: secret
+          objectVersion: ""
+        - |
+          objectName: NxsTrackerUUID
+          objectType: secret
+          objectVersion: ""
     resourceGroup: "" #REQUIRED
     tenantId: ${var.aks_base.tenant_id}
   secretObjects:
@@ -113,6 +133,14 @@ spec:
         objectName: BlobstoreConnectionStr
       - key: BLOBSTORE_CONTAINER_NAME
         objectName: BlobstoreContainerName
+      - key: APP_WORKER_CONTAINER
+        objectName: AppWorkerContainer
+      - key: APP_REPORT_COUNTS_INTERVAL
+        objectName: AppReportCountsInterval
+      - key: NXS_DETECTOR_UUID
+        objectName: NxsDetectorUUID
+      - key: NXS_TRACKER_UUID
+        objectName: NxsTrackerUUID
       secretName: nxsappkv
       type: Opaque
   YAML
