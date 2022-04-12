@@ -362,3 +362,8 @@ resource "kubernetes_secret" "regcred" {
   type = "kubernetes.io/dockerconfigjson"
   depends_on = [kubernetes_namespace.app_ns]
 }
+
+output aks_configs_completed {
+  value = true
+  depends_on = [kubernetes_secret.regcred, kubectl_manifest.secrets_provider]
+}

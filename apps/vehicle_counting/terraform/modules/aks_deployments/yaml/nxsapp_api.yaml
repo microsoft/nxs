@@ -20,8 +20,8 @@ spec:
     spec:
       subdomain: nxs
       containers:
-      #- image: ${IMAGE}:${IMAGE_TAG}
-      - image: ossnxs.azurecr.io/vcworker:v0.1
+      - image: ${API_CONTAINER}
+      #- image: ossnxs.azurecr.io/vcapi:v0.1
         imagePullPolicy: IfNotPresent
         name: nxs-api-server
         resources:
