@@ -43,8 +43,8 @@ def generate_uuid() -> str:
     return str(uuid.uuid4()).replace("-", "")
 
 
-parser = argparse.ArgumentParser(description="Vehicle Counting App")
-parser.add_argument("--port", type=int, default=8888)
+parser = argparse.ArgumentParser(description="Vehicle Counting App API")
+parser.add_argument("--port", type=int, default=80)
 parser.add_argument("--blobstore_conn_str", type=str)
 parser.add_argument("--blobstore_container", type=str)
 parser.add_argument("--cosmosdb_conn_str", type=str)
