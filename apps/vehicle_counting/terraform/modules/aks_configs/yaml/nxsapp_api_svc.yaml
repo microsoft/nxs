@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ${APP_NS}
+  name: nxsapp-api-svc
+  annotations:
+   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+  selector:
+    name: nxsapp-api-svc
