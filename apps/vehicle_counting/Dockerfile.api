@@ -6,12 +6,15 @@ RUN apt update && \
     apt install software-properties-common -y && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt update && \    
-    DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends python3 python3-dev python3-pip python3-setuptools python3-wheel python3-opencv &&\
+    DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends python3 python3-dev python3-pip python3-setuptools python3-wheel wget &&\
     apt clean
 
 COPY ./apps/vehicle_counting/requirements_api.txt requirements.txt
 RUN python3 -m pip install pip --upgrade
 RUN python3 -m pip install -r requirements.txt
+
+RUN wget "https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl" -O /usr/bin/kubectl
+RUN chmod +x /usr/bin/kubectl
 
 COPY ./apps/vehicle_counting/api ./apps/vehicle_counting/api
 COPY ./apps/vehicle_counting/app_types ./apps/vehicle_counting/app_types
