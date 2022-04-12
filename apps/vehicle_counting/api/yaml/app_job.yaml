@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: vc-worker
-  namespace: nxs
+  namespace: vcapp
 spec:
   template:
     spec:
@@ -69,7 +69,7 @@ spec:
               name: vc-config
               key: VC_REPORT_INTERVAL_SECS   
       imagePullSecrets:
-      - name: regcred
+      - name: vcregcred
       restartPolicy: Never
       nodeSelector:
         restype: cpu

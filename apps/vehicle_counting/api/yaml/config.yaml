@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vc-config
-  namespace: nxs
+  namespace: vcapp
 data:
   NXS_URL: ""
   NXS_API_KEY: ""
