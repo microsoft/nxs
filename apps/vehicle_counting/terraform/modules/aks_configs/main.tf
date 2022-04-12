@@ -8,28 +8,39 @@ terraform {
 }
 
 provider "kubernetes" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_base.host
+  username               = var.aks_base.username
+  password               = var.aks_base.password
+  client_certificate     = base64decode(var.aks_base.client_certificate)
+  client_key             = base64decode(var.aks_base.client_key)
+  cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = var.aks_base.host
+    username               = var.aks_base.username
+    password               = var.aks_base.password
+    client_certificate     = base64decode(var.aks_base.client_certificate)
+    client_key             = base64decode(var.aks_base.client_key)
+    cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
+  }
 }
 
 provider "kubectl" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_base.host
+  username               = var.aks_base.username
+  password               = var.aks_base.password
+  client_certificate     = base64decode(var.aks_base.client_certificate)
+  client_key             = base64decode(var.aks_base.client_key)
+  cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
   load_config_file       = false
 }
 
 # create vcapp namespace
 resource "kubernetes_namespace" "app_ns" {
   metadata {
-    name = "vcapp"
+    name = var.app_namespace
   }
 }
 
@@ -39,15 +50,15 @@ resource "kubectl_manifest" "secrets_provider" {
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
-  namespace: vcapp
-  name: nxs-vcapp-kv-sync
+  namespace: "${var.app_namespace}"
+  name: nxsapp-kv-sync
 spec:
   provider: azure
   parameters:
     usePodIdentity: "false"         
     useVMManagedIdentity: "true"   
-    userAssignedIdentityID: ${var.aks_kv_secrets_provider_client_id}
-    keyvaultName: ${var.kv_name}
+    userAssignedIdentityID: ${var.aks_base.secrets_provider_client_id}
+    keyvaultName: ${var.kv_base.kv_name}
     cloudName: ""          
     cloudEnvFileName: ""   
     objects:  |
@@ -58,6 +69,10 @@ spec:
           objectVersion: ""
         - |
           objectName: NxsUrl
+          objectType: secret
+          objectVersion: ""
+        - |
+          objectName: NxsApiKey
           objectType: secret
           objectVersion: ""
         - |
@@ -76,14 +91,20 @@ spec:
           objectName: BlobstoreContainerName
           objectType: secret
           objectVersion: ""
+        - |
+          objectName: AksKubeConfig
+          objectType: secret
+          objectVersion: ""
     resourceGroup: "" #REQUIRED
-    tenantId: ${var.aks_tenant_id}
+    tenantId: ${var.aks_base.tenant_id}
   secretObjects:
     - data:
       - key: API_KEY
         objectName: ApiKey
       - key: NXS_URL
         objectName: NxsUrl
+      - key: NXS_API_KEY
+        objectName: NxsApiKey
       - key: MONGODB_CONNECTION_STR
         objectName: MongoDbConnectionStr
       - key: MONGODB_MAINDB_NAME
@@ -92,11 +113,11 @@ spec:
         objectName: BlobstoreConnectionStr
       - key: BLOBSTORE_CONTAINER_NAME
         objectName: BlobstoreContainerName
-      secretName: nxsvckv
+      secretName: nxsappkv
       type: Opaque
   YAML
   depends_on = [
-    kubernetes_namespace.vcapp_ns
+    kubernetes_namespace.app_ns
   ]
 }
 
@@ -185,11 +206,11 @@ resource "helm_release" "nginx_ingress" {
   }
   set {
     name  = "controller.service.loadBalancerIP"
-    value = "${var.aks_public_ip_address}"
+    value = "${var.aks_base.public_ip}"
   }
   set {
     name  = "controller.service.annotations\\.service.beta.kubernetes.io/azure-dns-label-name"
-    value = "${var.aks_domain_name_label}"
+    value = "${var.aks_base.domain_name_label}"
   }  
   depends_on = [
     kubernetes_namespace.ingress_basic
@@ -251,7 +272,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: "${var.ssl_cert_owner_email}"
+    email: "${var.base.ssl_cert_owner_email}"
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
@@ -271,43 +292,45 @@ spec:
 # create api-service and ing-service
 resource "kubectl_manifest" "nxsapp_api_service" {
   wait = true
-  yaml_body = file("${path.module}/yaml/nxsapp_api_svc.yaml")
+  yaml_body = templatefile("${path.module}/yaml/nxsapp_api_svc.yaml",
+    {
+      APP_NS: "${var.app_namespace}"
+    }
+  )
   depends_on = [
-    kubernetes_namespace.vcapp_ns
+    kubernetes_namespace.app_ns
   ]
 }
 
 resource "kubectl_manifest" "nxsapp_ing_service" {
   wait = true
-  yaml_body = templatefile("${path.module}/yaml/nxsapp_api_svc.yaml",
+  yaml_body = templatefile("${path.module}/yaml/nxsapp_ing.yaml",
     {
-      DNS_FQDN: var.aks_domain_name_fqdn
+      APP_NS: "${var.app_namespace}"
+      DNS_FQDN: var.aks_base.domain_name_fqdn
     }
   )
   depends_on = [
-    kubernetes_namespace.vcapp_ns
+    kubernetes_namespace.app_ns
   ]
 }
 
 resource "kubernetes_secret" "regcred" {  
   metadata {
     name = "regcred"
-    namespace = "nxs"
+    namespace = "${var.app_namespace}"
   }
 
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {
-        #"${data.azurerm_container_registry.watchfor_acr.login_server}" = {
-        #  auth = "${base64encode("${data.azurerm_container_registry.watchfor_acr.admin_username}:${data.azurerm_container_registry.watchfor_acr.admin_password}")}"
-        #}
-        "${var.acr_login_server}" = {
-          auth = "${base64encode("${var.acr_user_name}:${var.acr_password}")}"
+        "${var.base.acr_login_server}" = {
+          auth = "${base64encode("${var.base.acr_username}:${var.base.acr_password}")}"
         }
       }
     })
   }
 
   type = "kubernetes.io/dockerconfigjson"
-  depends_on = [kubernetes_namespace.vcapp_ns]
+  depends_on = [kubernetes_namespace.app_ns]
 }

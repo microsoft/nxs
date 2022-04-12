@@ -10,7 +10,7 @@ resource "azurerm_kubernetes_cluster" "nxsapp_aks" {
   name                = lower(substr("nxs-${var.base.deployment_name}-aks", 0, 24))
   location            = var.base.location
   resource_group_name = var.base.rg_name
-  # dns_prefix          = "nxsapp-aks"
+  dns_prefix          = "nxsapp-aks"
 
   default_node_pool {
     name       = "cpupool1"
@@ -44,16 +44,33 @@ resource "azurerm_public_ip" "nxsapp_public_ip" {
   domain_name_label = var.aks_domain_name_label
 }
 
-output "kube_config" {
-  value = azurerm_kubernetes_cluster.nxsapp_aks.kube_config_raw
+#output "kube_config" {
+#  value = azurerm_kubernetes_cluster.nxsapp_aks.kube_config_raw
+#  sensitive = true
+#}
 
-  sensitive = true
-}
+#output aks_public_ip {
+#  value = azurerm_public_ip.nxsapp_public_ip.ip_address
+#}
 
-output aks_public_ip {
-  value = azurerm_public_ip.nxsapp_public_ip.ip_address
-}
+#output aks_domain_name_fqdn {
+#  value = azurerm_public_ip.nxsapp_public_ip.fqdn
+#}
 
-output aks_domain_name_fqdn {
-  value = azurerm_public_ip.nxsapp_public_ip.fqdn
+output aks_base {
+  value = {
+    public_ip =  azurerm_public_ip.nxsapp_public_ip.ip_address
+    domain_name_label = var.aks_domain_name_label
+    domain_name_fqdn = azurerm_public_ip.nxsapp_public_ip.fqdn
+    kube_config = azurerm_kubernetes_cluster.nxsapp_aks.kube_config_raw    
+    tenant_id = azurerm_kubernetes_cluster.nxsapp_aks.identity[0].tenant_id
+    secrets_provider_client_id = azurerm_kubernetes_cluster.nxsapp_aks.key_vault_secrets_provider[0].secret_identity[0].client_id
+    secrets_provider_object_id = azurerm_kubernetes_cluster.nxsapp_aks.key_vault_secrets_provider[0].secret_identity[0].object_id
+    host = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.host
+    username = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.username
+    password = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.password
+    client_certificate = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.client_certificate
+    client_key = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.client_key
+    cluster_ca_certificate = azurerm_kubernetes_cluster.nxsapp_aks.kube_config.0.cluster_ca_certificate
+  }
 }

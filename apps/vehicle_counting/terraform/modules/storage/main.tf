@@ -16,23 +16,22 @@ resource "random_password" "storage_name_suffix" {
 
 resource "azurerm_storage_account" "main" {
   provider            = azurerm.user_subscription
-  name                     = substr(replace("nxsvc${var.base.deployment_name}storage${random_password.storage_name_suffix.result}", "-", ""), 0, 24)
+  name                     = substr(replace("nxsapp${var.base.deployment_name}storage${random_password.storage_name_suffix.result}", "-", ""), 0, 24)
   resource_group_name      = var.base.rg_name
   location                 = var.base.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
 }
 
-resource "azurerm_storage_container" "nxsvc" {
-  name                  = "nxsvc"
+resource "azurerm_storage_container" "nxsapp" {
+  name                  = "nxsapp"
   storage_account_name  = azurerm_storage_account.main.name
   container_access_type = "private"
 }
 
-output nxs_vc_storage_connection_string {
-    value = azurerm_storage_account.main.primary_blob_connection_string
-}
-
-output nxs_vc_storage_container_name {
-    value = azurerm_storage_container.nxsvc.name
+output storage_base {
+  value = {
+    connection_string = azurerm_storage_account.main.primary_blob_connection_string
+    container_name = azurerm_storage_container.nxsapp.name
+  }
 }

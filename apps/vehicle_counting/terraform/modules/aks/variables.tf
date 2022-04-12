@@ -10,7 +10,7 @@ variable aks_cpupool1_vm_size {
 
 variable aks_cpupool1_min_node_count {
     type = number
-    default = 2
+    default = 1
 }
 
 variable aks_cpupool1_max_node_count {

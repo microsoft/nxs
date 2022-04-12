@@ -16,9 +16,9 @@ resource "random_password" "db_name_suffix" {
   override_special = "-_?@#"
 }
 
-resource "azurerm_cosmosdb_account" "nxs_vc_mongodb" {
+resource "azurerm_cosmosdb_account" "nxsapp_mongodb" {
   provider            = azurerm.user_subscription
-  name                = lower(substr("nxs-vc-${var.base.deployment_name}-db-${random_password.db_name_suffix.result}", 0, 24))
+  name                = lower(substr("nxsapp-${var.base.deployment_name}-db-${random_password.db_name_suffix.result}", 0, 24))
   location            = var.base.location
   resource_group_name = var.base.rg_name
   offer_type          = "Standard"
@@ -39,21 +39,21 @@ resource "azurerm_cosmosdb_account" "nxs_vc_mongodb" {
 }
 
 # create database for mongodb
-resource "azurerm_cosmosdb_mongo_database" "nxs_vc_mongodb_maindb" {
+resource "azurerm_cosmosdb_mongo_database" "nxsapp_mongodb_maindb" {
   name                = "VehicleCounting"
-  resource_group_name = azurerm_cosmosdb_account.nxs_vc_mongodb.resource_group_name
-  account_name        = azurerm_cosmosdb_account.nxs_vc_mongodb.name
+  resource_group_name = azurerm_cosmosdb_account.nxsapp_mongodb.resource_group_name
+  account_name        = azurerm_cosmosdb_account.nxsapp_mongodb.name
   autoscale_settings {
     max_throughput = var.db_autoscale_max_throughput
   }
 }
 
 # create counts collection
-resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
+resource "azurerm_cosmosdb_mongo_collection" "maindb_counts_collection" {
   name                = "counts"
-  resource_group_name = azurerm_cosmosdb_account.nxs_vc_mongodb.resource_group_name
-  account_name        = azurerm_cosmosdb_account.nxs_vc_mongodb.name
-  database_name       = azurerm_cosmosdb_mongo_database.nxs_vc_mongodb_maindb.name
+  resource_group_name = azurerm_cosmosdb_account.nxsapp_mongodb.resource_group_name
+  account_name        = azurerm_cosmosdb_account.nxsapp_mongodb.name
+  database_name       = azurerm_cosmosdb_mongo_database.nxsapp_mongodb_maindb.name
 
   default_ttl_seconds = "${var.db_item_ttl}"
   shard_key           = "zone"
@@ -86,11 +86,11 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
 }
 
 # create logs collection
-resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
+resource "azurerm_cosmosdb_mongo_collection" "maindb_logs_collection" {
   name                = "logs"
-  resource_group_name = azurerm_cosmosdb_account.nxs_vc_mongodb.resource_group_name
-  account_name        = azurerm_cosmosdb_account.nxs_vc_mongodb.name
-  database_name       = azurerm_cosmosdb_mongo_database.nxs_vc_mongodb_maindb.name
+  resource_group_name = azurerm_cosmosdb_account.nxsapp_mongodb.resource_group_name
+  account_name        = azurerm_cosmosdb_account.nxsapp_mongodb.name
+  database_name       = azurerm_cosmosdb_mongo_database.nxsapp_mongodb_maindb.name
 
   default_ttl_seconds = "${var.db_item_ttl}"
   shard_key           = "zone"
@@ -124,11 +124,11 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
 }
 
 # create tasks collection
-resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
+resource "azurerm_cosmosdb_mongo_collection" "maindb_tasks_collection" {
   name                = "tasks"
-  resource_group_name = azurerm_cosmosdb_account.nxs_vc_mongodb.resource_group_name
-  account_name        = azurerm_cosmosdb_account.nxs_vc_mongodb.name
-  database_name       = azurerm_cosmosdb_mongo_database.nxs_vc_mongodb_maindb.name
+  resource_group_name = azurerm_cosmosdb_account.nxsapp_mongodb.resource_group_name
+  account_name        = azurerm_cosmosdb_account.nxsapp_mongodb.name
+  database_name       = azurerm_cosmosdb_mongo_database.nxsapp_mongodb_maindb.name
 
   # tasks info should be in db in case app runs longer than ttl
   default_ttl_seconds = "-1"
@@ -151,18 +151,11 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_model_collection" {
   }
 }
 
-output nxs_vc_mongodb_key {
-  value = azurerm_cosmosdb_account.nxs_vc_mongodb.primary_key
-}
-
-output nxs_vc_mongodb_endpoint {
-  value = azurerm_cosmosdb_account.nxs_vc_mongodb.endpoint
-}
-
-output nxs_vc_mongodb_conn_str {
-  value = azurerm_cosmosdb_account.nxs_vc_mongodb.connection_strings[0]
-}
-
-output nxs_vc_mongodb_maindb_name {
-  value = azurerm_cosmosdb_mongo_database.nxs_vc_mongodb_maindb.name
+output db_base {
+  value = {
+    db_name = azurerm_cosmosdb_mongo_database.nxsapp_mongodb_maindb.name
+    db_key = azurerm_cosmosdb_account.nxsapp_mongodb.primary_key
+    db_endpoint = azurerm_cosmosdb_account.nxsapp_mongodb.endpoint
+    db_conn_str = azurerm_cosmosdb_account.nxsapp_mongodb.connection_strings[0]    
+  }
 }
