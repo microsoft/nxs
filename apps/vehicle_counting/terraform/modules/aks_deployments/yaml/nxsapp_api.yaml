@@ -6,7 +6,6 @@ metadata:
   labels:
     name: nxsapp-api-servers
 spec:
-  #replicas: ${NUM_REPLICAS}
   replicas: 1
   strategy:
     type: Recreate
@@ -21,22 +20,19 @@ spec:
       subdomain: nxs
       containers:
       - image: ${API_CONTAINER}
-      #- image: ossnxs.azurecr.io/vcapi:v0.1
         imagePullPolicy: IfNotPresent
         name: nxs-api-server
         resources:
           requests:
-            #cpu: ${CPU_REQUEST}
             cpu: 1000m
-            #memory: ${MEMORY_REQUEST}
             memory: 2Gi
         ports:
         - containerPort: 80
         command:
           - "/bin/bash"
-          - "-c"
-          - "sleep 100000000"
-          #- "/app/scripts/run_api.sh"
+          #- "-c"
+          #- "sleep 100000000"
+          - "apps/vehicle_counting/scripts/run_api.sh"
         volumeMounts:
         - name: kv-secrets-store
           mountPath: "/mnt/secrets-store"

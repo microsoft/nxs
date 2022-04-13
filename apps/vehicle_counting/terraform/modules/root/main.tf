@@ -115,3 +115,10 @@ module aks_configs {
   kv_base = module.keyvault.kv_base
   aks_base = module.aks.aks_base
 }
+
+module aks_deployments {
+  source = "../aks_deployments"
+  base    = local.base_config
+  aks_base = module.aks.aks_base
+  aks_configs_completed = module.aks_configs.aks_configs_completed  
+}
