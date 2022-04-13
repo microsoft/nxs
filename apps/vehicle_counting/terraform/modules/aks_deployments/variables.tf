@@ -10,3 +10,7 @@ variable aks_base {
 variable aks_configs_completed {
     type = bool
 }
+
+variable kv_store_secrets_completed {
+    type = bool
+}

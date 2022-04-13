@@ -121,5 +121,6 @@ module aks_deployments {
   source = "../aks_deployments"
   base    = local.base_config
   aks_base = module.aks.aks_base
-  aks_configs_completed = module.aks_configs.aks_configs_completed  
+  aks_configs_completed = module.aks_configs.aks_configs_completed
+  kv_store_secrets_completed = module.keyvault_secrets.kv_store_secrets_completed
 }
