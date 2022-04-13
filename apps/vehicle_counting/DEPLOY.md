@@ -20,6 +20,15 @@ docker push $ACR_LOGIN_SERVER/vcapi:v0.1
 docker push $ACR_LOGIN_SERVER/vcworker:v0.1
 ```
 
+## Register detector and tracker to NXS
+```
+export NXS_URL="URL TO NXS CLUSTER"
+export API_KEY="API KEY TO ACCESS NXS CLUSTER"
+export TRACKER_MODEL_URL="URL TO TRACKER MODEL" # tracker is under release review process, please contact author to request for access
+python apps/vehicle_counting/models/register_yolox-s.py
+python apps/vehicle_counting/models/register_siammask_tracker.py --model_url $TRACKER_MODEL_URL
+```
+
 ### Deploy to Azure
 Edit apps/vehicle_counting/terraform/envs/sample/main.tf
 
