@@ -73,6 +73,6 @@ terraform plan
 terraform apply
 ```
 
-Once the deployment is finished, you can access the cluster using "AppUrl", "ApiKey" in the keyvault's secrets.
+Once the deployment is finished, you can access the cluster using "AppUrl", "ApiKey" in the keyvault's secrets in the new resource group.
 
 You can also access the swagger page stored in "AppSwaggerUrl" secret.
