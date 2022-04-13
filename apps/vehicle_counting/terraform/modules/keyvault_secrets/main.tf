@@ -12,3 +12,8 @@ resource "azurerm_key_vault_secret" "secret" {
   name         = each.key
   value        = each.value
 }
+
+output kv_store_secrets_completed {
+  value = true
+  depends_on = [azurerm_key_vault_secret.secret]
+}

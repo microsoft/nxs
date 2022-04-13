@@ -101,6 +101,7 @@ module keyvault_secrets {
     NxsApiKey = var.nxs_api_key
     AksKubeConfig = module.aks.aks_base.kube_config
     AppUrl = module.aks.aks_base.domain_name_fqdn
+    AppSwaggerUrl = "${module.aks.aks_base.domain_name_fqdn}/docs"
     AppApiContainer = var.nxsapp_api_container
     AppWorkerContainer = var.nxsapp_worker_container
     AppReportCountsInterval = var.app_report_counts_interval
@@ -120,5 +121,6 @@ module aks_deployments {
   source = "../aks_deployments"
   base    = local.base_config
   aks_base = module.aks.aks_base
-  aks_configs_completed = module.aks_configs.aks_configs_completed  
+  aks_configs_completed = module.aks_configs.aks_configs_completed
+  kv_store_secrets_completed = module.keyvault_secrets.kv_store_secrets_completed
 }

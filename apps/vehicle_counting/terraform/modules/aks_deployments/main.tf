@@ -37,5 +37,5 @@ resource "kubectl_manifest" "nxsapp_api" {
   timeouts {
     create = "30m"
   }
-  depends_on = [var.aks_configs_completed]  
+  depends_on = [var.aks_configs_completed, var.kv_store_secrets_completed]  
 }
