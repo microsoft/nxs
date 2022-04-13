@@ -29,7 +29,7 @@ python apps/vehicle_counting/models/register_yolox-s.py
 python apps/vehicle_counting/models/register_siammask_tracker.py --model_url $TRACKER_MODEL_URL
 ```
 
-### Deploy to Azure
+## Deploy to Azure
 Edit apps/vehicle_counting/terraform/envs/sample/main.tf
 
 ```
