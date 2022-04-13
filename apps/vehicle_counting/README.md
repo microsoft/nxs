@@ -150,8 +150,6 @@ Return: list of video ids with queried status.
 
 ### *Terminate task: [POST] /video/terminate*
 
-NOTE: Due to resource contraint of the current staging server, only 2-3 videos can be processed in parallel. You can use this API to terminate RUNNING/PENDING tasks to make room for other tasks to run.
-
 Parameters:
 - [required] videoUuid: id returned in [POST] /video
 
