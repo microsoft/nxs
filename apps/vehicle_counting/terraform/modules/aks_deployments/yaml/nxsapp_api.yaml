@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: nxsapp
+  name: nxsapp-api-servers
+  labels:
+    name: nxsapp-api-servers
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      name: nxsapp-api-svc
+  template:
+    metadata:
+      labels:
+        name: nxsapp-api-svc
+    spec:
+      subdomain: nxs
+      containers:
+      - image: ${API_CONTAINER}
+        imagePullPolicy: IfNotPresent
+        name: nxs-api-server
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+        ports:
+        - containerPort: 80
+        command:
+          - "/bin/bash"
+          #- "-c"
+          #- "sleep 100000000"
+          - "apps/vehicle_counting/scripts/run_api.sh"
+        volumeMounts:
+        - name: kv-secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: API_KEY
+        - name: WORKER_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: APP_WORKER_CONTAINER
+        - name: COSMOSDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_CONNECTION_STR
+        - name: COSMOSDB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_MAINDB_NAME
+        - name: BLOBSTORE_CONN_STR
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONNECTION_STR
+        - name: BLOBSTORE_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONTAINER_NAME
+        - name: TMP_DIR
+          value: "/app/tmp"
+        - name: API_SERVER_PORT
+          value: "80"
+      imagePullSecrets:
+      - name: regcred
+      nodeSelector:
+        restype: cpu
+      volumes:
+      - name: kv-secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "nxsapp-kv-sync"

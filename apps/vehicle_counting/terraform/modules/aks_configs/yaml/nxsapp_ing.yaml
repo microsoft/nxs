@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: ${APP_NS}
+  name: nxsapp-api-ing
+  annotations:
+    kubernetes.io/ingress.class: nginx    
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1000M"
+spec:
+  tls:
+  - hosts:
+    - ${DNS_FQDN}
+    secretName: nxsapp-tls-secret
+  rules:
+  - host: ${DNS_FQDN}
+    http:
+      paths:
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: nxsapp-api-svc
+            port:
+              number: 80
