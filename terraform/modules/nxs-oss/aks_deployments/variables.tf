@@ -37,7 +37,7 @@ variable nxs_api_image {
 }
 variable nxs_api_image_tag {
     type = string
-    default = "v0.1.1"
+    default = "v0.1.0"
 }
 variable nxs_api_cpu_requests {
     type = string
@@ -63,7 +63,7 @@ variable nxs_scheduler_image {
 }
 variable nxs_scheduler_image_tag {
     type = string
-    default = "v0.1.1"
+    default = "v0.1.0"
 }
 variable nxs_scheduler_cpu_requests {
     type = string
@@ -80,7 +80,7 @@ variable nxs_workload_manager_image {
 }
 variable nxs_workload_manager_image_tag {
     type = string
-    default = "v0.1.1"
+    default = "v0.1.0"
 }
 variable nxs_workload_manager_cpu_requests {
     type = string
@@ -97,7 +97,7 @@ variable nxs_backend_gpu_image {
 }
 variable nxs_backend_gpu_image_tag {
     type = string
-    default = "v0.1.1"
+    default = "v0.1.0"
 }
 variable nxs_backend_gpu_cpu_requests {
     type = string
