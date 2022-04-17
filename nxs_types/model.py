@@ -132,8 +132,9 @@ class NxsModel(NxsBaseModel):
     created_time: Optional[str] = ""
     model_type: ModelType = ModelType.SINGLE
     collocated_model_uuids: List[str] = []
-    num_preprocessors: Optional[int] = 2
-    num_postprocessors: Optional[int] = 2
+    num_request_pullers: Optional[int] = 1
+    num_preprocessors: Optional[int] = 1
+    num_postprocessors: Optional[int] = 1
 
 
 class NxsModelRegistrationRequest(NxsBaseModel):
@@ -142,6 +143,9 @@ class NxsModelRegistrationRequest(NxsBaseModel):
     postproc_url: str = ""
     transfrom_url: str = ""
     predefined_model_uuid: Optional[str] = ""
+    num_request_pullers: Optional[int] = 1
+    num_preprocessors: Optional[int] = 1
+    num_postprocessors: Optional[int] = 1
 
 
 class NxsColocatedModels(DataModel):
