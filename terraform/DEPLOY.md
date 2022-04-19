@@ -85,6 +85,14 @@ module "nxs" {
   acr_login_server      = "nxsacrxxx.azurecr.io"              # change this to login server noted in step 1
   acr_username          = ""                                  # change this to username noted in step 1
   acr_password          = ""                                  # change this to password noted in step 1
+  nxs_scheduler_image             = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_scheduler_image_tag         = "v0.1.0"
+  nxs_workload_manager_image      = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_workload_manager_image_tag  = "v0.1.0"
+  nxs_backend_gpu_image           = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_backend_gpu_image_tag       = "v0.1.0"
+  nxs_api_image                   = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_api_image_tag               = "v0.1.0"
 }
 
 output nxs_url {
@@ -95,11 +103,6 @@ output nxs_api_key {
   value = module.nxs.nxs_api_key
   sensitive = true
 }
-```
-
-Edit terraform/modules/nxs-oss/aks_deployments/variables.tf
-```
-Change ALL "nxsacrxxx.azurecr.io" to the "Login server" in step 1. 
 ```
 
 Deploy NXS
