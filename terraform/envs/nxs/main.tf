@@ -21,6 +21,14 @@ module "nxs" {
   acr_login_server      = ""              # change this to acr where you store nxs container
   acr_username          = ""
   acr_password          = ""
+  nxs_scheduler_image             = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_scheduler_image_tag         = "v0.1.0"
+  nxs_workload_manager_image      = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_workload_manager_image_tag  = "v0.1.0"
+  nxs_backend_gpu_image           = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_backend_gpu_image_tag       = "v0.1.0"
+  nxs_api_image                   = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_api_image_tag               = "v0.1.0"
 }
 
 output nxs_url {

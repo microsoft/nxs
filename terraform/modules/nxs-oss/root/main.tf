@@ -160,6 +160,14 @@ module aks_deployments {
   nxs_backend_gpu_num_replicas = var.aks_min_gpu_node_count
   nxs_api_num_replicas = var.aks_num_api_containers
   enable_api_v1 = var.enable_api_v1
+  nxs_scheduler_image = var.nxs_scheduler_image
+  nxs_scheduler_image_tag = var.nxs_scheduler_image_tag
+  nxs_workload_manager_image = var.nxs_workload_manager_image
+  nxs_workload_manager_image_tag = var.nxs_workload_manager_image_tag
+  nxs_backend_gpu_image = var.nxs_backend_gpu_image
+  nxs_backend_gpu_image_tag = var.nxs_backend_gpu_image_tag
+  nxs_api_image = var.nxs_api_image
+  nxs_api_image_tag = var.nxs_api_image_tag
 }
 
 output nxs_url {

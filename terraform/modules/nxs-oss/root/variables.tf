@@ -123,3 +123,42 @@ variable acr_password {
   type = string
   description = "Password to access azure container registry"
 }
+
+variable nxs_scheduler_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+
+variable nxs_scheduler_image_tag {
+  type = string
+  default = "v0.1.0"
+}
+
+variable nxs_workload_manager_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+
+variable nxs_workload_manager_image_tag {
+  type = string
+  default = "v0.1.0"
+}
+
+variable nxs_backend_gpu_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+variable nxs_backend_gpu_image_tag {
+  type = string
+  default = "v0.1.0"
+}
+
+variable nxs_api_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+
+variable nxs_api_image_tag {
+  type = string
+  default = "v0.1.0"
+}
