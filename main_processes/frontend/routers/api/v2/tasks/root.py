@@ -275,7 +275,16 @@ async def submit_image_task(
 
     extra_params = NxsInferExtraParams(**extra_params)
 
-    res = await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
+    try:
+        res = await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
+    except Exception as e:
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[str(e)],
+        )
+
     return res
 
 
@@ -410,7 +419,18 @@ async def submit_text_task(
     if infer_info.session_uuid is not None:
         session_uuid = infer_info.session_uuid
 
-    res = await _infer_single(infer_info.text, infer_info.pipeline_uuid, session_uuid)
+    try:
+        res = await _infer_single(
+            infer_info.text, infer_info.pipeline_uuid, session_uuid
+        )
+    except Exception as e:
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[str(e)],
+        )
+
     return res
 
 
@@ -426,20 +446,48 @@ async def submit_task_tensors(
         try:
             infer_request = NxsTensorsInferRequest(**infer_request)
         except:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
+            # raise HTTPException(
+            #     status.HTTP_400_BAD_REQUEST,
+            #     "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
+            # )
+
+            return NxsInferResult(
+                type=NxsInferResultType.CUSTOM,
+                status=NxsInferStatus.FAILED,
+                task_uuid="",
+                error_msgs=[
+                    "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict."
+                ],
             )
 
     if not isinstance(infer_request, NxsTensorsInferRequest):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
+        # raise HTTPException(
+        #     status.HTTP_400_BAD_REQUEST,
+        #     "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
+        # )
+
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[
+                "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict."
+            ],
         )
     else:
         infer_request: NxsTensorsInferRequest = infer_request
 
-    res = await _infer_tensors(infer_request)
+    try:
+        res = await _infer_tensors(infer_request)
+    except Exception as e:
+        # raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[str(e)],
+        )
+
     return res
 
 
@@ -502,7 +550,7 @@ async def _infer_single(
     pipeline = _get_pipeline_info(pipeline_uuid)
 
     if pipeline is None:
-        raise Exception("Invalid pipeline_uuid.")
+        raise Exception("invalid pipeline uuid")
 
     num_inputs = len(pipeline.models[0].component_models[0].model_desc.inputs)
     if num_inputs > 1:
@@ -592,7 +640,7 @@ async def _infer_tensors(infer_request: NxsTensorsInferRequest):
     pipeline = _get_pipeline_info(infer_request.pipeline_uuid)
 
     if pipeline is None:
-        raise Exception("Invalid pipeline_uuid.")
+        raise Exception("invalid pipeline uuid")
 
     tasks_data.append((infer_request.pipeline_uuid, infer_request.session_uuid))
 
