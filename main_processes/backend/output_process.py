@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import time
@@ -33,7 +34,7 @@ from nxs_types.infer_result import (
 from nxs_types.model import NxsModel
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
-from nxs_utils.logging import NxsLogLevel, write_log
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
 class LogMetadata:
@@ -84,10 +85,15 @@ class BackendOutputProcess(ABC):
             pass
 
         self.log_prefix = "{}_OUTPUT_{}".format(component_model.model_uuid, pid)
-        self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
+        # self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
 
-    def _log(self, message):
-        write_log(self.log_prefix, message, self.log_level)
+        setup_logger()
+
+    # def _log(self, message):
+    #     write_log(self.log_prefix, message, self.log_level)
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
     def run(self):
         from multiprocessing import Process

@@ -1,4 +1,5 @@
 import copy
+import logging
 import shutil
 import multiprocessing
 from multiprocessing.managers import SyncManager
@@ -38,6 +39,7 @@ from nxs_types.model import Framework, NxsCompositoryModel, NxsModel
 from nxs_types.scheduling_data import NxsSchedulingPerCompositorymodelPlan
 from nxs_utils.nxs_helper import *
 from nxs_utils.common import create_dir_if_needed, delete_and_create_dir
+from nxs_utils.logging import setup_logger
 from configs import *
 
 from threading import Thread, Lock
@@ -117,6 +119,10 @@ class NxsBackendBaseProcess(ABC):
         )
         self.global_dispatcher_thr.start()
 
+        # self.log_prefix = f"BACKEND_{self.backend_name}"
+        self.log_prefix = "BACKEND_MAIN"
+        setup_logger()
+
         self._register_backend()
 
     @abstractmethod
@@ -126,6 +132,9 @@ class NxsBackendBaseProcess(ABC):
     @abstractmethod
     def _get_backend_stat_metadata(self) -> str:
         return "{}"
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
     def _get_backend_stat(self) -> BackendStat:
         return BackendStat(
@@ -146,6 +155,7 @@ class NxsBackendBaseProcess(ABC):
 
     def heartbeat_thread_fn(self):
         t0 = time.time()
+        last_alive_ts = time.time()
         while not self.heartbeat_thread_stop_flag:
             if time.time() - t0 > self.heartbeat_interval:
                 data = NxsMsgReportHeartbeat(
@@ -154,6 +164,10 @@ class NxsBackendBaseProcess(ABC):
                 )
                 self.queue_pusher.push(GLOBAL_QUEUE_NAMES.SCHEDULER, data)
                 t0 = time.time()
+
+            if time.time() - last_alive_ts > 30 * 60:
+                self._log("Heartbeat thread is still alive...")
+                last_alive_ts = time.time()
 
             time.sleep(0.1)
 
@@ -164,7 +178,9 @@ class NxsBackendBaseProcess(ABC):
         if self.heartbeat_thread is not None:
             # need to stop this thread first
             self.heartbeat_thread_stop_flag = True
+            self._log("Stopping heartbeat thread...")
             self.heartbeat_thread.join()
+            self._log("Heartbeat thread was stopped...")
             self.heartbeat_thread = None
             self.heartbeat_thread_stop_flag = False
 
@@ -180,6 +196,8 @@ class NxsBackendBaseProcess(ABC):
 
     def run(self):
         from multiprocessing import Manager, Process, Value
+
+        last_alive_ts = time.time()
 
         with Manager() as manager:
             while True:
@@ -198,6 +216,10 @@ class NxsBackendBaseProcess(ABC):
                         self.global_dispatcher_lock.acquire()
                         self._process_unscheduling_plan(msg.plan, manager)
                         self.global_dispatcher_lock.release()
+
+                if time.time() - last_alive_ts > 30 * 60:
+                    self._log("Main process is still alive...")
+                    last_alive_ts = time.time()
 
                 if not msgs:
                     time.sleep(0.1)
@@ -277,8 +299,10 @@ class NxsBackendBaseProcess(ABC):
             infer_runtime = self.infer_runtime_map[cmodel_uuid]
             infer_runtime.stop_flags[0].value = True
 
+            self._log(f"Stopping processes - model {cmodel_uuid}")
             for pid, process in enumerate(infer_runtime.processes):
                 process.stop()
+            self._log(f"Stopped processes - model {cmodel_uuid}")
 
             for component_model in self.infer_runtime_map[
                 cmodel_uuid
@@ -287,11 +311,13 @@ class NxsBackendBaseProcess(ABC):
                 component_model_dir_path = os.path.join(
                     dir_abs_path, component_model.model_uuid
                 )
-                print(f"to_delete_folder: {component_model_dir_path}")
+                # print(f"to_delete_folder: {component_model_dir_path}")
+                self._log(f"to_delete_folder: {component_model_dir_path}")
                 shutil.rmtree(component_model_dir_path)
 
             self.infer_runtime_map.pop(cmodel_uuid)
-            print(f"Stopped model {cmodel_uuid}")
+            # print(f"Stopped model {cmodel_uuid}")
+            self._log(f"Stopped model {cmodel_uuid}")
 
     def _process_scheduling_plan(
         self, plan: NxsSchedulingPerBackendPlan, mp_manager: SyncManager
@@ -321,6 +347,8 @@ class NxsBackendBaseProcess(ABC):
 
                 continue
 
+            self._log(f"Deploying cmodel {cmodel_plan.model_uuid} ...")
+
             cmodel = self._get_compository_model_from_plan(cmodel_plan)
 
             component_model_paths = []
@@ -330,6 +358,9 @@ class NxsBackendBaseProcess(ABC):
             component_processes = []
 
             # download model from cache
+            self._log(
+                f"Downloading models and processing functions for cmodel {cmodel_plan.model_uuid} ..."
+            )
             for component_model in cmodel.component_models:
                 dir_abs_path = os.path.dirname(os.path.realpath(__file__))
                 component_model_dir_path = os.path.join(
@@ -357,18 +388,23 @@ class NxsBackendBaseProcess(ABC):
                     component_model_path = os.path.join(
                         component_model_dir_path, f"model.pb"
                     )
+                else:
+                    # should not go here
+                    component_model_path = os.path.join(
+                        component_model_dir_path, f"model.onnx"
+                    )
                 shutil.copy(cached_component_model_path, component_model_path)
 
                 # TODO: we should also cache these preprocess/postprocess/transform-ing
-                print(
-                    f"preprocessing/{component_model.model_desc.preprocessing_name}.py"
-                )
+                # print(
+                #     f"preprocessing/{component_model.model_desc.preprocessing_name}.py"
+                # )
                 preproc_data = self.storage.download(
                     f"preprocessing/{component_model.model_desc.preprocessing_name}.py"
                 )
-                print(
-                    f"postprocessing/{component_model.model_desc.postprocessing_name}.py"
-                )
+                # print(
+                #     f"postprocessing/{component_model.model_desc.postprocessing_name}.py"
+                # )
                 postproc_data = self.storage.download(
                     f"postprocessing/{component_model.model_desc.postprocessing_name}.py"
                 )
@@ -391,9 +427,9 @@ class NxsBackendBaseProcess(ABC):
                     and component_model.model_desc.transforming_name.lower()
                     not in ["", "none"]
                 ):
-                    print(
-                        f"transforming/{component_model.model_desc.transforming_name}.py"
-                    )
+                    # print(
+                    #     f"transforming/{component_model.model_desc.transforming_name}.py"
+                    # )
                     transforming_data = self.storage.download(
                         f"transforming/{component_model.model_desc.transforming_name}.py"
                     )
@@ -408,6 +444,10 @@ class NxsBackendBaseProcess(ABC):
                 component_postprocessing_paths.append(postproc_path)
                 component_transforming_paths.append(transform_path)
 
+            self._log(
+                f"Downloaded models and processing functions for cmodel {cmodel_plan.model_uuid}"
+            )
+
             shared_queues = []
             stop_flags = []
             allow_inference_flags = []
@@ -416,6 +456,9 @@ class NxsBackendBaseProcess(ABC):
             dispatcher_update_shared_list = mp_manager.list()
             global_dispatcher_input_shared_list = mp_manager.list()
             global_dispatcher_output_shared_list = mp_manager.list()
+
+            self._log(f"Creating processes for cmodel {cmodel_plan.model_uuid} ...")
+
             for idx in range(len(cmodel.component_models)):
                 component_model = cmodel.component_models[idx]
                 component_model_plan = cmodel_plan.component_model_plans[idx]
@@ -713,9 +756,13 @@ class NxsBackendBaseProcess(ABC):
                 for p in output_processes:
                     component_processes.append(p)
 
+            self._log(f"Created processes for cmodel {cmodel_plan.model_uuid}")
+
+            self._log(f"Lauching processes for cmodel {cmodel_plan.model_uuid} ...")
             # start all processes
             for p in component_processes:
                 p.run()
+            self._log(f"Launched processes for cmodel {cmodel_plan.model_uuid}")
 
             infer_runtime_info = InferRuntimeInfo(
                 cmodel,
@@ -727,6 +774,8 @@ class NxsBackendBaseProcess(ABC):
                 shared_queues,
             )
             self.infer_runtime_map[cmodel.main_model.model_uuid] = infer_runtime_info
+
+            self._log(f"Deployed cmodel {cmodel_plan.model_uuid}")
 
     def _get_compository_model_from_plan(
         self, cmodel_plan: NxsSchedulingPerCompositorymodelPlan
