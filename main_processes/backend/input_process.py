@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import json
@@ -22,7 +23,7 @@ from nxs_types.model import (
 )
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
-from nxs_utils.logging import NxsLogLevel, write_log
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
 class BackendInputProcess(ABC):
@@ -70,9 +71,11 @@ class BackendInputProcess(ABC):
             pass
 
         self.log_prefix = "{}_INPUT".format(component_model.model_uuid)
-        self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
+        # self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
 
         self.next_topic_name = "{}_PREPROCESSOR".format(component_model.model_uuid)
+
+        setup_logger()
 
     def add_session(self, input_interface_args):
         session_uuid = input_interface_args["session_uuid"]
@@ -88,8 +91,11 @@ class BackendInputProcess(ABC):
             self.process_update_shared_list.append(("REMOVE_SESSION", session_uuid))
             self.input_interface_args_dict.pop(session_uuid)
 
-    def _log(self, message):
-        write_log(self.log_prefix, message, self.log_level)
+    # def _log(self, message):
+    #     write_log(self.log_prefix, message, self.log_level)
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
     def run(self):
         from multiprocessing import Process

@@ -1,8 +1,9 @@
 import copy
 import json
 import time
+import logging
 from lru import LRU
-from configs import GLOBAL_QUEUE_NAMES
+from configs import GLOBAL_QUEUE_NAMES, NXS_CONFIG
 from nxs_libs.interface.scheduling_policy.simple_policy_v2 import (
     SimpleSchedulingPolicyv2,
 )
@@ -31,6 +32,12 @@ from nxs_libs.queue import (
     NxsQueuePusher,
     NxsQueuePusherFactory,
     NxsQueueType,
+)
+from nxs_utils.logging import (
+    NxsLogLevel,
+    NxsLogLevel2LoggingLevelMap,
+    setup_logger,
+    write_log,
 )
 from nxs_utils.nxs_helper import (
     create_db_from_args,
@@ -73,15 +80,23 @@ class NxsSchedulerProcess:
 
         self.last_requests: List[NxsSchedulingRequest] = []
 
+        self.log_prefix = "SCHEDULER"
+        setup_logger()
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
+
     def _get_pipeline_info(self, pipeline_uuid) -> NxsPipelineRuntime:
         if self.pipeline_info_cache.has_key(pipeline_uuid):
-            print(f"Retrieved pipeline {pipeline_uuid} from cache")
+            # print(f"Retrieved pipeline {pipeline_uuid} from cache")
+            self._log(f"Retrieved pipeline {pipeline_uuid} from cache")
             return self.pipeline_info_cache[pipeline_uuid]
 
         pipeline = NxsPipelineRuntime.get_from_db(pipeline_uuid, self.main_db)
         if pipeline:
             self.pipeline_info_cache[pipeline_uuid] = pipeline
-            print(f"Inserted pipeline {pipeline_uuid} to cache")
+            # print(f"Inserted pipeline {pipeline_uuid} to cache")
+            self._log(f"Inserted pipeline {pipeline_uuid} to cache")
 
         for atomic_model in pipeline.pipeline.models:
             self.compository_model_info_cache[
@@ -99,9 +114,9 @@ class NxsSchedulerProcess:
         return None
 
     def _update_backend_name_list_in_db(self):
-        print("_update_backend_name_list_in_db called")
+        # print("_update_backend_name_list_in_db called")
         backend_names = list(self.backends.keys())
-        print(backend_names)
+        # print(backend_names)
         self.state_db.set_value(self.BACKEND_ROOT_TOPIC, backend_names)
 
     def run(self):
@@ -116,7 +131,7 @@ class NxsSchedulerProcess:
                 if msg.type == NxsMsgType.REGISTER_BACKEND:
                     self.process_register_backend(msg)
                 if msg.type == NxsMsgType.REGISTER_WORKLOADS:
-                    print(msg)
+                    # print(msg)
                     self.process_register_workloads(msg)
                 if msg.type == NxsMsgType.REPORT_HEARTBEAT:
                     self.process_heartbeat_msg(msg)
@@ -127,7 +142,7 @@ class NxsSchedulerProcess:
                 time.time() - check_expired_backend_t0
                 > self.args.backend_timeout_secs / 3
             ):
-                print("Running check_expired_backend ...")
+                # print("Running check_expired_backend ...")
                 if self.has_expired_backends():
                     # reschedule because one or more backends left the system
                     self.reschedule_workloads()
@@ -160,7 +175,8 @@ class NxsSchedulerProcess:
             else:
                 self.cpu_backends[backend_name] = backend
 
-            print(f"Restored backend: {backend.get_runtime_info()}")
+            # print(f"Restored backend: {backend.get_runtime_info()}")
+            self._log(f"Restored backend: {backend.get_runtime_info()}")
 
     def process_register_backend(self, msg: NxsMsgRegisterBackend):
         backend_name = msg.backend_name
@@ -196,6 +212,8 @@ class NxsSchedulerProcess:
 
         backend.update_entry_in_db(self.state_db)
 
+        self._log(f"Backend {backend_name} was added.")
+
     def send_heartbeat_interval(self, backend_name: str):
         # send back heartbeat interval
         hb_interval_data = NxsMsgChangeHeartbeatInterval(
@@ -215,6 +233,10 @@ class NxsSchedulerProcess:
                     session_uuid=wl.session_uuid,
                     requested_fps=wl.fps,
                 )
+            )
+
+            self._log(
+                f"Received workload - pipeline_uuid: {pipeline_uuid} - session_uuid: {wl.session_uuid} - fps: {wl.fps}"
             )
 
         self.schedule_workloads(scheduling_requests)
@@ -244,10 +266,20 @@ class NxsSchedulerProcess:
             backend_name = plan.backend_name
             self.queue_pusher.push(backend_name, msg)
 
+            for cplan in plan.compository_model_plans:
+                self._log(
+                    f"Deallocating {cplan.model_uuid} to backend {plan.backend_name}"
+                )
+
         for plan in scheduling_plans:
             msg = NxsMsgSchedulePlans(plan=plan)
             backend_name = plan.backend_name
             self.queue_pusher.push(backend_name, msg)
+
+            for cplan in plan.compository_model_plans:
+                self._log(
+                    f"Allocating {cplan.model_uuid} to backend {plan.backend_name}"
+                )
 
         self.last_requests = _scheduling_requests
 
@@ -315,7 +347,9 @@ class NxsSchedulerProcess:
             self.cpu_backends.pop(backend_name, None)
             self.gpu_backends.pop(backend_name, None)
             backend.remove(self.state_db)
-            print(f"Backend {backend_name} has been removed from system!")
+
+            # print(f"Backend {backend_name} has been removed from system!")
+            self._log(f"Backend {backend_name} has been removed from system!")
 
             has_expired = True
 

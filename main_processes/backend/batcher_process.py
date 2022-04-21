@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import time
@@ -20,7 +21,7 @@ from nxs_types.model import (
 )
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
-from nxs_utils.logging import NxsLogLevel, write_log
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
 class BackendBatcherProcess:
@@ -59,8 +60,13 @@ class BackendBatcherProcess:
 
         self.next_topic_name = "{}_COMPUTE".format(component_model.model_uuid)
 
-    def _log(self, message):
-        write_log(self.log_prefix, message, self.log_level)
+        setup_logger()
+
+    # def _log(self, message):
+    #     write_log(self.log_prefix, message, self.log_level)
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
     def run(self):
         from multiprocessing import Process

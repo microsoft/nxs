@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Dict, List, Tuple
 from abc import ABC, abstractmethod
@@ -15,18 +16,23 @@ from nxs_types.message import (
     NxsMsgReportInputWorkloads,
     NxsMsgRegisterWorkloads,
 )
+from nxs_utils.logging import setup_logger
 
 
 class NxsBaseWorkloadManagerPolicy(ABC):
     def __init__(self, args: NxsWorkloadManagerArgs) -> None:
         super().__init__()
         self.args = args
+        self.log_prefix = "WorkloadManagerPolicy"
 
     @abstractmethod
     def process_msgs(
         self, msgs: List[NxsMsgReportInputWorkloads]
     ) -> Tuple[bool, List[FrontendModelPipelineWorkloadReport]]:
         raise NotImplementedError
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
 
 class NxsWorkloadManager:

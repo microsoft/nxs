@@ -53,7 +53,7 @@ class FrontendWorkloads:
             # self.uuid2pipelineuuid.pop(uuid)
             # self.uuid2sessionuuid.pop(uuid)
 
-            print(f"Removed workload {uuid} from frontend {self.frontend}")
+            # print(f"Removed workload {uuid} from frontend {self.frontend}")
 
     def remove_expired(self):
         for uuid in list(self.uuid2throughput.keys()):
@@ -96,6 +96,8 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
 
             is_new_workload = True
 
+            self._log(f"Added new workload {uuid}")
+
         self.uuid2throughput[uuid].append(workload.fps)
         self.uuid2timestamps[uuid].append(time.time())
 
@@ -119,7 +121,8 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
             # self.uuid2pipelineuuid.pop(uuid)
             # self.uuid2sessionuuid.pop(uuid)
 
-            print(f"Removed workload {uuid}")
+            # print(f"Removed workload {uuid}")
+            self._log(f"Removed workload {uuid}")
 
     def remove_expired(self):
         for uuid in list(self.uuid2throughput.keys()):
@@ -157,7 +160,7 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
             workloads_dict[uuid] += self.pinned_workloads[uuid]
 
         for uuid in workloads_dict:
-            print(uuid)
+            # print(uuid)
             pipeline_uuid, session_uuid = uuid.split("_")
             msg = FrontendModelPipelineWorkloadReport(
                 pipeline_uuid=pipeline_uuid,
@@ -175,7 +178,7 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
         scheduling_msgs = []
 
         for msg in msgs:
-            print(msg)
+            # print(msg)
             if msg.type == NxsMsgType.REGISTER_WORKLOADS:
                 # frontend_name = msg.data.frontend_name
 
@@ -190,11 +193,17 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
                 uuid = f"{pin_msg.pipeline_uuid}_{pin_msg.session_uuid}"
                 self.pinned_workloads[uuid] = pin_msg.fps
                 to_schedule = True
+                self._log(
+                    f"Pinning workload - pipeline_uuid: {pin_msg.pipeline_uuid} - session_uuid: {pin_msg.session_uuid} - fps: {pin_msg.fps}"
+                )
             elif msg.type == NxsMsgType.UNPIN_WORKLOADS:
                 unpin_msg: NxsMsgUnpinWorkload = msg
                 uuid = f"{unpin_msg.pipeline_uuid}_{unpin_msg.session_uuid}"
                 if uuid in self.pinned_workloads:
                     self.pinned_workloads.pop(uuid)
+                    self._log(
+                        f"Unpinning workload - pipeline_uuid: {unpin_msg.pipeline_uuid} - session_uuid: {unpin_msg.session_uuid}"
+                    )
 
         if time.time() - self.t0 > self.args.report_workloads_interval:
             to_schedule = True
@@ -202,7 +211,7 @@ class NxsSimpleWorkloadManagerPolicy(NxsBaseWorkloadManagerPolicy):
         if to_schedule:
             # generate scheduling data
             scheduling_msgs = self.generate_scheduling_msgs()
-            print(scheduling_msgs)
+            # print(scheduling_msgs)
             self.t0 = time.time()
 
         return to_schedule, scheduling_msgs

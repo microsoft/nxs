@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 import json
@@ -17,7 +18,7 @@ from nxs_libs.interface.backend.input import (
 from nxs_libs.interface.backend.output import (
     BackendOutputInterfaceFactory,
 )
-from nxs_utils.logging import NxsLogLevel, write_log
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
 class BackendComputeProcess(ABC):
@@ -50,7 +51,7 @@ class BackendComputeProcess(ABC):
         self.transforming_fn_path = transforming_fn_path
 
         self.log_prefix = "{}_COMPUTE".format(component_model.model_uuid)
-        self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
+        # self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
         self.next_topic_name = "{}_OUTPUT".format(component_model.model_uuid)
 
         self.input_tensor_names = [
@@ -77,8 +78,13 @@ class BackendComputeProcess(ABC):
             "supported_batch_sizes": self.supported_batch_sizes,
         }
 
-    def _log(self, message):
-        write_log(self.log_prefix, message, self.log_level)
+        setup_logger()
+
+    # def _log(self, message):
+    #     write_log(self.log_prefix, message, self.log_level)
+
+    def _log(self, message, log_level=logging.INFO):
+        logging.log(log_level, f"{self.log_prefix} - {message}")
 
     def run(self):
         from multiprocessing import Process

@@ -841,8 +841,8 @@ class SimpleSchedulingPolicyv2(BaseSchedulingPolicy):
                 cmodel_plan_v2.session_uuid_list.append(session_uuid)
                 backend_scheduling_data[backend_name].duty_cyles.append(1.0)
 
-        print("backend_scheduling_data", backend_scheduling_data)
-        print("")
+        # print("backend_scheduling_data", backend_scheduling_data)
+        # print("")
 
         backend_unscheduling_data: Dict[str, NxsUnschedulingPerBackendPlan] = {}
         for plan in unscheduling_plans:
@@ -874,8 +874,8 @@ class SimpleSchedulingPolicyv2(BaseSchedulingPolicy):
 
             cmodel_plan.session_uuid_list.append(session_uuid)
 
-        print("backend_unscheduling_data", backend_unscheduling_data)
-        print("")
+        # print("backend_unscheduling_data", backend_unscheduling_data)
+        # print("")
 
         return NxsSchedulingPlan(
             scheduling=[

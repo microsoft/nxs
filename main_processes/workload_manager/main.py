@@ -11,6 +11,7 @@ from nxs_libs.interface.workload_manager import NxsWorkloadManager
 from nxs_libs.interface.workload_manager.simple_policy import (
     NxsSimpleWorkloadManagerPolicy,
 )
+from nxs_utils.logging import setup_logger
 from nxs_utils.nxs_helper import *
 
 from abc import ABC, abstractmethod
@@ -19,6 +20,8 @@ if __name__ == "__main__":
     from args import parse_args
 
     args = parse_args()
+
+    setup_logger()
 
     queue_puller = create_queue_puller_from_args(
         args, NxsQueueType.REDIS, GLOBAL_QUEUE_NAMES.WORKLOAD_MANAGER
