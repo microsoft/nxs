@@ -155,7 +155,7 @@ spec:
       type: Opaque
   YAML
   depends_on = [
-    kubernetes_namespace.nxs_ns
+    kubernetes_namespace.nxs_ns, var.redis_address
   ]
 }
 

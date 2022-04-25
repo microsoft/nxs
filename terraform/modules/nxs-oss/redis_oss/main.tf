@@ -28,6 +28,7 @@ provider "kubectl" {
 
 # create redis-operator namespace
 resource "kubernetes_namespace" "redis_operator_ns" {
+  count = var.create_module ? 1 : 0
   metadata {
     name = "redis-operator"
     labels = {
@@ -38,12 +39,14 @@ resource "kubernetes_namespace" "redis_operator_ns" {
 
 # create ot-operators namespace
 resource "kubernetes_namespace" "ot_operator_ns" {
+  count = var.create_module ? 1 : 0
   metadata {
     name = "ot-operators"
   }
 }
 
 resource "kubectl_manifest" "redis_step1" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/redis.redis.opstreelabs.in_redis.yaml")
@@ -54,6 +57,7 @@ resource "kubectl_manifest" "redis_step1" {
 }
 
 resource "kubectl_manifest" "redis_step2" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/redis.redis.opstreelabs.in_redisclusters.yaml")
@@ -64,6 +68,7 @@ resource "kubectl_manifest" "redis_step2" {
 }
 
 resource "kubectl_manifest" "redis_step3" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/serviceaccount.yaml")
@@ -74,6 +79,7 @@ resource "kubectl_manifest" "redis_step3" {
 }
 
 resource "kubectl_manifest" "redis_step4" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/role.yaml")
@@ -84,6 +90,7 @@ resource "kubectl_manifest" "redis_step4" {
 }
 
 resource "kubectl_manifest" "redis_step5" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/role_binding.yaml")
@@ -94,6 +101,7 @@ resource "kubectl_manifest" "redis_step5" {
 }
 
 resource "kubectl_manifest" "redis_step6" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = file("${path.module}/yaml/manager.yaml")
@@ -112,6 +120,7 @@ resource "random_password" "redis_password" {
 }
 
 resource "kubectl_manifest" "redis_conf" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = templatefile("${path.module}/yaml/redis_conf.yaml",
@@ -126,6 +135,7 @@ resource "kubectl_manifest" "redis_conf" {
 }
 
 resource "kubectl_manifest" "redis_server" {
+  count = var.create_module ? 1 : 0
   wait = true
   wait_for_rollout = true
   yaml_body = templatefile("${path.module}/yaml/redis_standalone.yaml",
@@ -141,7 +151,7 @@ resource "kubectl_manifest" "redis_server" {
 }
 
 output redis_address {
-  value = "redis-standalone.ot-operators"
+  value = var.create_module ? "redis-standalone.ot-operators" : ""
   depends_on = [kubectl_manifest.redis_server]
 }
 
@@ -151,11 +161,11 @@ output redis_port {
 }
 
 output redis_password {
-  value = random_password.redis_password.result
+  value = var.create_module ? random_password.redis_password.result : ""
   depends_on = [kubectl_manifest.redis_server]
 }
 
 output redis_use_ssl {
-    value = "false"
-    depends_on = [kubectl_manifest.redis_server]
+  value = "false"
+  depends_on = [kubectl_manifest.redis_server]
 }
