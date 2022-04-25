@@ -74,16 +74,17 @@ module apikey {
 }
 
 # this module uses azure redis cache
-#module redis {
-#  source = "../redis_cache"
-#  base    = local.base_config
-#  az_redis_cache_family_type = var.az_redis_cache_family_type
-#  az_redis_cache_capacity = var.az_redis_cache_capacity
-#  az_redis_cache_sku = var.az_redis_cache_sku
-#}
+module azure_redis {
+  source = "../redis_cache"
+  base    = local.base_config
+  az_redis_cache_family_type = var.az_redis_cache_family_type
+  az_redis_cache_capacity = var.az_redis_cache_capacity
+  az_redis_cache_sku = var.az_redis_cache_sku
+  create_module = var.use_azure_redis_cache
+}
 
 # this module deploys oss redis into our aks cluster
-module redis {
+module oss_redis {
   source = "../redis_oss"
   base    = local.base_config
   aks_host = module.aks.aks_host
@@ -92,6 +93,7 @@ module redis {
   aks_client_certificate = module.aks.aks_client_certificate
   aks_client_client_key = module.aks.aks_client_client_key
   aks_client_cluster_ca_certificate = module.aks.aks_client_cluster_ca_certificate
+  create_module = !var.use_azure_redis_cache
 }
 
 module keyvault_acl {
@@ -117,10 +119,10 @@ module keyvault_secrets {
     MongoDbMaindbName = module.db.nxs_mongodb_maindb_name
     BlobstoreConnectionStr = module.storage.nxs_storage_connection_string
     BlobstoreContainerName = module.storage.nxs_storage_container_name
-    RedisAddress = module.redis.redis_address
-    RedisPort = module.redis.redis_port
-    RedisPassword = module.redis.redis_password
-    RedisUseSSL = module.redis.redis_use_ssl
+    RedisAddress = var.use_azure_redis_cache ? module.azure_redis.redis_address : module.oss_redis.redis_address
+    RedisPort = var.use_azure_redis_cache ? module.azure_redis.redis_port : module.oss_redis.redis_port
+    RedisPassword = var.use_azure_redis_cache ? module.azure_redis.redis_password : module.oss_redis.redis_password
+    RedisUseSSL = var.use_azure_redis_cache ? module.azure_redis.redis_use_ssl : module.oss_redis.redis_use_ssl
     NxsUrl = "https://${module.aks.aks_domain_name_fqdn}"
     NxsSwaggerUrl = "https://${module.aks.aks_domain_name_fqdn}/docs"
   }
@@ -145,6 +147,7 @@ module aks_configs {
   acr_login_server = var.acr_login_server
   acr_user_name = var.acr_username
   acr_password = var.acr_password
+  redis_address = var.use_azure_redis_cache ? module.azure_redis.redis_address : module.oss_redis.redis_address
 }
 
 module aks_deployments {

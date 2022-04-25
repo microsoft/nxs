@@ -109,6 +109,12 @@ variable enable_api_v1 {
   default     = true
 }
 
+variable use_azure_redis_cache {
+  type = bool
+  description = "Use Azure Redis Cache instead of OSS Redis"
+  default     = false
+}
+
 variable acr_login_server {
   type = string
   description = "Azure container registry server"

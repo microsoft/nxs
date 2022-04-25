@@ -15,6 +15,7 @@ resource "random_password" "redis_name_suffix" {
 }
 
 resource "azurerm_redis_cache" "nxs_redis" {
+  count = var.create_module ? 1 : 0
   provider            = azurerm.user_subscription
   name                = lower(substr("nxs-${var.base.deployment_name}-redis-${random_password.redis_name_suffix.result}", 0, 24))
   location            = var.base.location
@@ -32,17 +33,17 @@ resource "azurerm_redis_cache" "nxs_redis" {
 }
 
 output redis_address {
-  value = azurerm_redis_cache.nxs_redis.hostname
+  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].hostname : ""
 }
 
 output redis_port {
-  value = azurerm_redis_cache.nxs_redis.ssl_port
+  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].ssl_port : 6380
 }
 
 output redis_password {
-  value = azurerm_redis_cache.nxs_redis.primary_access_key
+  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].primary_access_key : ""
 }
 
 output redis_use_ssl {
-    value = "true"
+  value = "true"
 }

@@ -20,3 +20,8 @@ variable az_redis_cache_sku {
   description = "Azure Redis Cache SKU Type"
   default     = "Standard"
 }
+
+variable create_module {
+  type = bool
+  description = "Enable or disable this module"
+}

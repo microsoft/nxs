@@ -66,3 +66,7 @@ variable acr_user_name {
 variable acr_password {
     type = string
 }
+
+variable redis_address {
+    type = string
+}

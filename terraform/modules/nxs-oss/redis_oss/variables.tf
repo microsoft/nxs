@@ -38,3 +38,8 @@ variable redis_memory_per_node {
   description = "Memory allocated to single node in redis cluster"
   default     = "2Gi"
 }
+
+variable create_module {
+  type = bool
+  description = "Enable or disable this module"
+}
