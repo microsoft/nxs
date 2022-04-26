@@ -344,7 +344,7 @@ resource "kubectl_manifest" "nxs_ing_service" {
     }
   )
   depends_on = [
-    kubernetes_namespace.nxs_ns
+    kubernetes_namespace.nxs_ns, kubectl_manifest.ca_issuer
   ]
 }
 
