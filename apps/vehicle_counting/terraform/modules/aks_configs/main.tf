@@ -326,7 +326,7 @@ resource "kubectl_manifest" "nxsapp_api_service" {
     }
   )
   depends_on = [
-    kubernetes_namespace.app_ns
+    kubernetes_namespace.app_ns, kubectl_manifest.ca_issuer
   ]
 }
 
