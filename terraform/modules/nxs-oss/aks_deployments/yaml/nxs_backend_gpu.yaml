@@ -6,7 +6,7 @@ metadata:
   labels:
     name: nxs-backend-gpu
 spec:
-  replicas: 1
+  replicas: ${NUM_REPLICAS}
   strategy:
     type: Recreate
   selector:
