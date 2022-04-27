@@ -117,3 +117,21 @@ resource "kubectl_manifest" "nxs_api_servers" {
     kubectl_manifest.nxs_gpu_backends
   ]
 }
+
+resource "kubectl_manifest" "nxs_initializer" {
+  count = var.run_initializer ? 1 : 0
+  wait = true
+  wait_for_rollout = true
+  timeouts {
+    create = "30m"
+  }
+  yaml_body = templatefile("${path.module}/yaml/nxs_initializer.yaml",
+    {
+      IMAGE: var.nxs_initializer_image
+      IMAGE_TAG: var.nxs_initializer_image_tag      
+    }
+  )
+  depends_on = [
+    kubectl_manifest.nxs_api_servers
+  ]
+}
