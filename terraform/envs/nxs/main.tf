@@ -29,6 +29,8 @@ module "nxs" {
   nxs_backend_gpu_image_tag       = "v0.1.0"
   nxs_api_image                   = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
   nxs_api_image_tag               = "v0.1.0"
+  use_azure_redis_cache           = false                          # set to true if you want to use azure redis cache  
+  az_redis_cache_capacity         = 2
 }
 
 output nxs_url {

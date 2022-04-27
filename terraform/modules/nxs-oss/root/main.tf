@@ -171,6 +171,9 @@ module aks_deployments {
   nxs_backend_gpu_image_tag = var.nxs_backend_gpu_image_tag
   nxs_api_image = var.nxs_api_image
   nxs_api_image_tag = var.nxs_api_image_tag
+  run_initializer = var.run_initializer
+  nxs_initializer_image = var.nxs_initializer_image
+  nxs_initializer_image_tag = var.nxs_initializer_image_tag
 }
 
 output nxs_url {

@@ -111,3 +111,18 @@ variable nxs_backend_gpu_num_replicas {
     type = number
     default = 1
 }
+
+variable nxs_initializer_image {
+    type = string
+    default = ""
+}
+variable nxs_initializer_image_tag {
+    type = string
+    default = "v0.5.0"
+}
+
+variable run_initializer {
+  type = bool
+  description = "Run initializer if required"
+  default = false
+}
