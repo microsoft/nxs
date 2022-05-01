@@ -263,6 +263,7 @@ async def submit_image_task(
     session_uuid: str = "global",
     file: UploadFile = File(...),
     extra_params_json_str: str = '{"preproc": {}, "postproc": {}, "transform": {}}',
+    infer_timeout: float = 10,
     authenticated: bool = Depends(check_api_key),
 ):
     image_bin = await file.read()
@@ -276,7 +277,9 @@ async def submit_image_task(
     extra_params = NxsInferExtraParams(**extra_params)
 
     try:
-        res = await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
+        res = await _infer_single(
+            image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
     except Exception as e:
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -298,6 +301,7 @@ async def submit_image_task_from_url(
         infer_info.session_uuid,
         infer_info.url,
         infer_info.extra_params,
+        infer_info.infer_timeout,
     )
 
 
@@ -314,6 +318,7 @@ async def submit_batch_image_task_from_url(
                 infer_info.session_uuid,
                 url,
                 infer_info.extra_params,
+                infer_info.infer_timeout,
             )
         )
 
@@ -325,10 +330,13 @@ async def process_image_task_from_url(
     session_uuid: str,
     url: str,
     extra_params: NxsInferExtraParams = NxsInferExtraParams(),
+    infer_timeout: float = 10,
 ) -> NxsInferResult:
     try:
         image_bin = await async_download_to_memory(url)
-        return await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
+        return await _infer_single(
+            image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
     except Exception as e:
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -354,6 +362,7 @@ async def submit_image_task_from_azure_blobstore(
         infer_info.blobstore_path,
         external_model_store,
         infer_info.extra_params,
+        infer_info.infer_timeout,
     )
 
     await external_model_store.close()
@@ -381,6 +390,7 @@ async def submit_batch_image_task_from_azure_blobstore(
                 blobstore_path,
                 external_model_store,
                 infer_info.extra_params,
+                infer_info.infer_timeout,
             )
         )
 
@@ -397,10 +407,13 @@ async def process_image_task_from_azure_blobstore(
     blobstore_path: str,
     external_model_store: NxsAsyncAzureBlobStorage,
     extra_params: NxsInferExtraParams = NxsInferExtraParams(),
+    infer_timeout: float = 10,
 ) -> NxsInferResult:
     try:
         image_bin = await external_model_store.download(blobstore_path)
-        return await _infer_single(image_bin, pipeline_uuid, session_uuid, extra_params)
+        return await _infer_single(
+            image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
     except Exception as e:
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -421,7 +434,11 @@ async def submit_text_task(
 
     try:
         res = await _infer_single(
-            infer_info.text, infer_info.pipeline_uuid, session_uuid
+            infer_info.text,
+            infer_info.pipeline_uuid,
+            session_uuid,
+            infer_info.extra_params,
+            infer_info.infer_timeout,
         )
     except Exception as e:
         return NxsInferResult(
@@ -530,6 +547,7 @@ async def _infer_single(
     pipeline_uuid: str,
     session_uuid: str,
     users_extra_params: NxsInferExtraParams = NxsInferExtraParams(),
+    infer_timeout: float = 10,
 ) -> NxsInferResult:
     global tasks_data, shared_queue_pusher, task_result_dict, tasks_summary_data
     global task_summary_processor, session_params, redis_kv_server
@@ -602,6 +620,9 @@ async def _infer_single(
     # wait for result
     result = {}
     while True:
+        if time.time() - entry_t0 > infer_timeout:
+            raise Exception("Request timeout")
+
         if task_uuid not in task_result_dict:
             # time.sleep(0.01)
             await asyncio.sleep(0.0025)
@@ -669,6 +690,9 @@ async def _infer_tensors(infer_request: NxsTensorsInferRequest):
     # wait for result
     result = {}
     while True:
+        if time.time() - entry_t0 > infer_request.infer_timeout:
+            raise Exception("Request timeout")
+
         if task_uuid not in task_result_dict:
             # time.sleep(0.01)
             await asyncio.sleep(0.0025)
