@@ -27,6 +27,7 @@ class NxsInferInputBase(DataModel):
     pipeline_uuid: str
     session_uuid: str = "global"
     extra_params: NxsInferExtraParams = NxsInferExtraParams()
+    infer_timeout: float = 10
 
 
 class NxsInferImageInputFromUrl(NxsInferInputBase):
@@ -89,3 +90,4 @@ class NxsTensorsInferRequest(DataModel):
     extra_transform_params: Optional[str] = "{}"
     extra_postproc_params: Optional[str] = "{}"
     inputs: List[NxsInferInput]
+    infer_timeout: float = 10
