@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
-import json
 import pickle
+import numpy as np
+from abc import ABC, abstractmethod
 from typing import Dict, List
 from enum import Enum
 from nxs_types import DataModel
@@ -11,6 +11,7 @@ from nxs_types.infer import NxsInferRequest
 class BackendDispatcherType(str, Enum):
     BASIC = "basic"
     BASIC_SLA = "basic_sla"
+    BASIC_MONITORING = "basic_monitoring"
 
 
 class BackendDispatcherExceptionInvalidType(Exception):
@@ -44,6 +45,10 @@ class BackendDispatcher(ABC):
     def report_stats_to_global_dispatcher(self) -> Dict:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_stats_summary(self) -> Dict:
+        raise NotImplementedError
+
 
 class BackendBasicDispatcher(BackendDispatcher):
     def __init__(self, extra_params={}) -> None:
@@ -65,6 +70,66 @@ class BackendBasicDispatcher(BackendDispatcher):
             last_stats = {}
 
         return last_stats
+
+    def get_stats_summary(self) -> Dict:
+        return {}
+
+
+class BackendBasicMonitoringDispatcher(BackendBasicDispatcher):
+    def __init__(self, extra_params={}, max_cache_size: int = 30) -> None:
+        super().__init__(extra_params)
+        self.max_cache_size = max_cache_size
+        self.states_cache: List = []
+        self.total_processed_reqs = 0
+
+    def dispatch(self, requests: List[NxsInferRequest]) -> DispatcherResult:
+        return DispatcherResult(to_schedule=requests)
+
+    def update_stats(self, stats: Dict = {}) -> None:
+        self.last_stats = stats
+
+        self.total_processed_reqs += stats.get("num_reqs", 0)
+
+        if len(self.states_cache) > self.max_cache_size:
+            self.states_cache.pop(0)
+
+        self.states_cache.append(stats)
+
+    def update_stats_from_global_dispatcher(self, stats: Dict = {}) -> None:
+        pass
+
+    def report_stats_to_global_dispatcher(self) -> Dict:
+        return {}
+
+    def get_stats_summary(self) -> Dict:
+        output_processes = {}
+
+        for stats in self.states_cache:
+            output_pid = stats["output_pid"]
+            if output_pid not in output_processes:
+                output_processes[output_pid] = []
+
+            output_processes[output_pid].append(stats)
+
+        fps = 0
+        latency_stats = []
+        for pid in output_processes:
+            fps += np.mean([stats["fps"] for stats in output_processes[pid]])
+            latency_stats.extend([stats["latency"] for stats in output_processes[pid]])
+
+        latency = {
+            "mean": np.mean([stats["mean"] for stats in latency_stats]),
+            "min": np.mean([stats["min"] for stats in latency_stats]),
+            "max": np.mean([stats["max"] for stats in latency_stats]),
+        }
+
+        response = {
+            "total_reqs": self.total_processed_reqs,
+            "fps": fps,
+            "latency": latency,
+        }
+
+        return response
 
 
 class BackendBasicSlaDispatcher(BackendDispatcher):
@@ -128,11 +193,16 @@ class BackendBasicSlaDispatcher(BackendDispatcher):
 
         return last_stats
 
+    def get_stats_summary(self) -> Dict:
+        return {}
+
 
 class BackendDispatcherFactory:
     @staticmethod
     def create_dispatcher(type: BackendDispatcherType, **kwargs) -> BackendDispatcher:
         if type == BackendDispatcherType.BASIC:
             return BackendBasicDispatcher(**kwargs)
+        elif type == BackendDispatcherType.BASIC_MONITORING:
+            return BackendBasicMonitoringDispatcher(**kwargs)
 
         raise BackendDispatcherExceptionInvalidType
