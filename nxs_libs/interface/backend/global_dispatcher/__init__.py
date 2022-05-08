@@ -1,12 +1,13 @@
 import json
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import Any, List, Dict
+from nxs_types.log import NxsBackendCmodelThroughputLog
 
 from nxs_types.message import NxsMsgBackendStatsReport
 
 
 class MiniDispatcherInputData:
-    def __init__(self, cmodel_uuid: str, mini_dispatcher_data: List[Dict]) -> None:
+    def __init__(self, cmodel_uuid: str, mini_dispatcher_data: List[Any]) -> None:
         self.cmodel_uuid = cmodel_uuid
         self.mini_dispatcher_data = mini_dispatcher_data
 
@@ -33,6 +34,14 @@ class GlobalDispatcher(ABC):
     def generate_backend_stats_report_in_json_str(self) -> NxsMsgBackendStatsReport:
         raise NotImplementedError
 
+    @abstractmethod
+    def generate_backend_monitoring_log(self) -> List[NxsBackendCmodelThroughputLog]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def remove_state(self, cmodel_uuid: str):
+        raise NotImplementedError
+
 
 class BasicGlobalDispatcher(GlobalDispatcher):
     def __init__(self, extra_params={}) -> None:
@@ -48,3 +57,15 @@ class BasicGlobalDispatcher(GlobalDispatcher):
 
     def generate_backend_stats_report_in_json_str(self) -> str:
         return json.dumps({})
+
+    def generate_backend_monitoring_log(self) -> List[NxsBackendCmodelThroughputLog]:
+        results: List[NxsBackendCmodelThroughputLog] = []
+
+        for cmodel_uuid in self.last_stats_dict:
+            if self.last_stats_dict[cmodel_uuid]:
+                results.append(self.last_stats_dict[cmodel_uuid][-1])
+
+        return results
+
+    def remove_state(self, cmodel_uuid: str):
+        self.last_stats_dict.pop(cmodel_uuid, None)
