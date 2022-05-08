@@ -48,6 +48,7 @@ from nxs_types.infer_result import (
     NxsInferResultType,
     NxsInferResultWithMetadata,
 )
+from nxs_types.log import NxsBackendCmodelThroughputLog, NxsBackendThroughputLog
 from nxs_types.message import (
     NxsMsgPinWorkload,
     NxsMsgReportInputWorkloads,
@@ -540,6 +541,16 @@ if args.enable_benchmark_api:
             break
 
         return {"status": "COMPLETED"}
+
+
+@router.get("/monitoring/backends", response_model=List[NxsBackendThroughputLog])
+async def get_monitoring_backend_reports():
+    global redis_kv_server
+    logs = redis_kv_server.get_value(GLOBAL_QUEUE_NAMES.BACKEND_MONITOR_LOGS)
+    if logs is None:
+        logs = []
+
+    return logs
 
 
 async def _infer_single(
