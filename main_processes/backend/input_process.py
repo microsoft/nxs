@@ -1,11 +1,13 @@
 import logging
-import os
+import pickle
 import time
 import json
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict
-from configs import NXS_CONFIG
+
+import requests
+from configs import GLOBAL_QUEUE_NAMES, NXS_CONFIG
 from nxs_libs.interface.backend.dispatcher import (
     BackendDispatcherFactory,
     BackendDispatcherType,
@@ -17,6 +19,9 @@ from nxs_libs.interface.backend.input import (
 from nxs_libs.interface.backend.output import (
     BackendOutputInterfaceFactory,
 )
+from nxs_libs.queue import NxsQueuePusherFactory, NxsQueueType
+from nxs_types.infer import NxsInferRequest
+from nxs_types.log import NxsBackendCmodelThroughputLog
 from nxs_types.model import (
     ModelInput,
     NxsModel,
@@ -24,6 +29,7 @@ from nxs_types.model import (
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
+from nxs_utils.nxs_helper import create_queue_pusher_from_args
 
 
 class BackendInputProcess(ABC):
@@ -44,7 +50,7 @@ class BackendInputProcess(ABC):
         process_update_shared_list=None,
         extra_params: Dict = {},
     ) -> None:
-
+        self.args = args
         self.component_model = component_model
         self.component_model_plan = component_model_plan
         self.input_interface_args_dict = input_interface_args_dict
@@ -69,6 +75,8 @@ class BackendInputProcess(ABC):
             )
         except:
             pass
+
+        self.log_pusher = create_queue_pusher_from_args(args, NxsQueueType.REDIS)
 
         self.log_prefix = "{}_INPUT".format(component_model.model_uuid)
         # self.log_level = os.environ.get(NXS_CONFIG.LOG_LEVEL, NxsLogLevel.INFO)
@@ -234,9 +242,24 @@ class BackendInputProcess(ABC):
                     for stats in stats_list:
                         self.dispatcher.update_stats(stats)
 
-                    self.global_dispatcher_output_shared_list.append(
-                        self.dispatcher.report_stats_to_global_dispatcher()
+                    # self.global_dispatcher_output_shared_list.append(
+                    #     self.dispatcher.report_stats_to_global_dispatcher()
+                    # )
+
+                    summary_log = self.dispatcher.get_stats_summary()
+                    tp_log = NxsBackendCmodelThroughputLog(
+                        # backend_name=self.args.backend_name,
+                        model_uuid=self.component_model.model_uuid,
+                        total_reqs=summary_log["total_reqs"],
+                        fps=summary_log["fps"],
+                        latency_mean=summary_log["latency"]["mean"],
+                        latency_min=summary_log["latency"]["min"],
+                        latency_max=summary_log["latency"]["max"],
                     )
+
+                    self.global_dispatcher_output_shared_list.append(tp_log)
+
+                    # self.log_pusher.push(GLOBAL_QUEUE_NAMES.BACKEND_LOGS, tp_log)
 
                 dispatcher_update_t0 = time.time()
 
@@ -247,15 +270,30 @@ class BackendInputProcess(ABC):
             ):
                 time.sleep(max_latency / 2)
 
+            new_requests = []
             if self.stop_flag.value:
                 for session_uuid in self.input_dict:
-                    incoming_batches.extend(
-                        self.input_dict[session_uuid].close_and_get_remains()
-                    )
+                    new_requests = self.input_dict[session_uuid].close_and_get_remains()
+                    incoming_batches.extend(new_requests)
                 to_exit = True
             else:
                 for session_uuid in self.input_dict:
-                    incoming_batches.extend(self.input_dict[session_uuid].get_batch())
+                    new_requests = self.input_dict[session_uuid].get_batch()
+                    incoming_batches.extend(new_requests)
+
+            for request in new_requests:
+                data: NxsInferRequest = request
+
+                carry_over_extras = {}
+                if data.carry_over_extras is not None:
+                    try:
+                        carry_over_extras = pickle.loads(data.carry_over_extras)
+                    except:
+                        carry_over_extras = {}
+
+                self.request_entering(carry_over_extras)
+
+                data.carry_over_extras = pickle.dumps(carry_over_extras)
 
             # trigger dispatcher to rearrange execution orders
             dispatching_result = self.dispatcher.dispatch(incoming_batches)
@@ -268,6 +306,12 @@ class BackendInputProcess(ABC):
             requests_count += len(dispatching_result.to_schedule)
 
             if dispatching_result.to_schedule:
+                for request in dispatching_result.to_schedule:
+                    data: NxsInferRequest = request
+                    carry_over_extras = pickle.loads(data.carry_over_extras)
+                    self.request_exiting(carry_over_extras)
+                    data.carry_over_extras = pickle.dumps(carry_over_extras)
+
                 self.output.put_batch(
                     self.next_topic_name, dispatching_result.to_schedule
                 )
@@ -278,6 +322,20 @@ class BackendInputProcess(ABC):
                     # print("input", "fps", fps)
                     self._log(f"FPS: {fps}")
                 requests_count = 0
+
+                # summary_log = self.dispatcher.get_stats_summary()
+                # tp_log = NxsBackendThroughputLog(
+                #     backend_name=self.args.backend_name,
+                #     model_uuid=self.component_model.model_uuid,
+                #     total_reqs=summary_log["total_reqs"],
+                #     fps=summary_log["fps"],
+                #     latency_mean=summary_log["latency"]["mean"],
+                #     latency_min=summary_log["latency"]["min"],
+                #     latency_max=summary_log["latency"]["max"],
+                # )
+
+                # self.log_pusher.push(GLOBAL_QUEUE_NAMES.BACKEND_LOGS, tp_log)
+
                 tt0 = time.time()
 
             if to_exit:

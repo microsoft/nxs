@@ -44,18 +44,14 @@ class BackendBasicInputProcess(BackendInputProcess):
         )
 
     def request_entering(self, extra_metadata: Dict):
-        if "preprocessing_t0" not in extra_metadata:
-            extra_metadata["preprocessing_t0"] = time.time()
+        if "input_t0" not in extra_metadata:
+            extra_metadata["input_t0"] = time.time()
 
         extra_metadata[self.component_model.model_uuid] = {}
-        extra_metadata[self.component_model.model_uuid][
-            "preprocessing_t0"
-        ] = time.time()
+        extra_metadata[self.component_model.model_uuid]["input_t0"] = time.time()
 
     def request_exiting(self, extra_metadata: Dict):
-        preprocessing_t0 = extra_metadata[self.component_model.model_uuid].pop(
-            "preprocessing_t0"
-        )
-        extra_metadata[self.component_model.model_uuid]["preprocessing_lat"] = (
-            time.time() - preprocessing_t0
+        input_t0 = extra_metadata[self.component_model.model_uuid].pop("input_t0")
+        extra_metadata[self.component_model.model_uuid]["input_lat"] = (
+            time.time() - input_t0
         )
