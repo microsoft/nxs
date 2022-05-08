@@ -150,6 +150,16 @@ variable nxs_workload_manager_image_tag {
   default = "v0.1.0"
 }
 
+variable nxs_backend_monitor_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+
+variable nxs_backend_monitor_image_tag {
+  type = string
+  default = "v0.1.0"
+}
+
 variable nxs_backend_gpu_image {
   type = string
   default = "ossnxs.azurecr.io/nxs/dev"

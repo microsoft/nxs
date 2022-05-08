@@ -167,6 +167,8 @@ module aks_deployments {
   nxs_scheduler_image_tag = var.nxs_scheduler_image_tag
   nxs_workload_manager_image = var.nxs_workload_manager_image
   nxs_workload_manager_image_tag = var.nxs_workload_manager_image_tag
+  nxs_backend_monitor_image = var.nxs_backend_monitor_image
+  nxs_backend_monitor_image_tag = var.nxs_backend_monitor_image_tag
   nxs_backend_gpu_image = var.nxs_backend_gpu_image
   nxs_backend_gpu_image_tag = var.nxs_backend_gpu_image_tag
   nxs_api_image = var.nxs_api_image

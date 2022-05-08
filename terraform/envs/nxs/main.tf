@@ -25,6 +25,8 @@ module "nxs" {
   nxs_scheduler_image_tag         = "v0.1.0"
   nxs_workload_manager_image      = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
   nxs_workload_manager_image_tag  = "v0.1.0"
+  nxs_backend_monitor_image      = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
+  nxs_backend_monitor_image_tag  = "v0.1.0"
   nxs_backend_gpu_image           = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server
   nxs_backend_gpu_image_tag       = "v0.1.0"
   nxs_api_image                   = "nxsacrxxx.azurecr.io/nxs/dev" # change nxsacrxxx.azurecr.io to your acr_login_server

@@ -75,6 +75,26 @@ resource "kubectl_manifest" "nxs_workload_manager" {
   ]
 }
 
+resource "kubectl_manifest" "nxs_backend_monitor" {
+  wait = true
+  wait_for_rollout = true
+  #yaml_body = file("${path.module}/yaml/nxs_backend_monitor.yaml")
+  yaml_body = templatefile("${path.module}/yaml/nxs_backend_monitor.yaml",
+    {
+      IMAGE: var.nxs_backend_monitor_image
+      IMAGE_TAG: var.nxs_backend_monitor_image_tag
+      CPU_REQUEST: var.nxs_backend_monitor_cpu_requests
+      MEMORY_REQUEST: var.nxs_backend_monitor_memory_requests
+    }
+  )
+  timeouts {
+    create = "30m"
+  }
+  depends_on = [
+    kubectl_manifest.nxs_scheduler
+  ]
+}
+
 resource "kubectl_manifest" "nxs_gpu_backends" {
   wait = true
   wait_for_rollout = true
