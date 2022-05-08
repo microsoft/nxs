@@ -58,6 +58,10 @@ class NxsBackendArgs(NxsBaseArgs):
     force_cpu: bool = False
 
 
+class NxsBackendMonitorArgs(NxsBaseArgs):
+    polling_interval_secs: float = 5
+
+
 class NxsWorkloadManagerArgs(NxsBaseArgs):
     model_timeout_secs: float
     report_workloads_interval: float
