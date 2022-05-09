@@ -148,5 +148,5 @@ output aks_domain_name_fqdn {
 }
 
 output aks_kube_config {
-  value = azurerm_kubernetes_cluster.nxsapp_aks.kube_config_raw
+  value = azurerm_kubernetes_cluster.nxs_aks.kube_config_raw
 }
