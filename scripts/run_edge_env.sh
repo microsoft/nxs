@@ -81,6 +81,17 @@ python3 main_processes/workload_manager/main.py     \
 --enable_instant_scheduling true \
 --model_timeout_secs 180 &
 
+python3 main_processes/backend_monitor/main.py     \
+--mongodb_uri $MONGODB_URI     \
+--mongodb_db_name $MONGODB_DB_NAME \
+--db_use_shard_key true     \
+--storage_type local_storage \
+--job_queue_type redis     \
+--job_redis_queue_address localhost \
+--job_redis_queue_port 6379 \
+--job_redis_queue_password $REDIS_PASSWD \
+--job_redis_queue_use_ssl false &
+
 # Run gpu backend
 python3 main_processes/backend/main.py --backend_name backend \
 --mongodb_uri $MONGODB_URI     \
