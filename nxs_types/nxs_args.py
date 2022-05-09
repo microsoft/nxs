@@ -42,6 +42,7 @@ class NxsApiArgs(NxsBaseArgs):
     api_key: str = ""
     enable_benchmark_api: bool = False
     enable_v1_api: bool = False
+    enable_scaling: bool = False
 
 
 class NxsSchedulerArgs(NxsBaseArgs):

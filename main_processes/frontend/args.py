@@ -20,6 +20,11 @@ def parse_args():
         default=False,
         type=lambda x: (str(x).lower() == "true"),
     )
+    parser.add_argument(
+        "--enable_scaling",
+        default=False,
+        type=lambda x: (str(x).lower() == "true"),
+    )
     _args = parser.parse_args()
 
     args = NxsApiArgs(**(vars(_args)))

@@ -543,6 +543,35 @@ if args.enable_benchmark_api:
         return {"status": "COMPLETED"}
 
 
+if args.enable_scaling:
+
+    @router.post("/backends/scale/gpu")
+    async def scale_backends(
+        num_backends: int,
+        authenticated: bool = Depends(check_api_key),
+    ):
+        if num_backends < 0:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "num_backends must be at least 0",
+            )
+
+        from kubernetes import client, config
+
+        config.load_kube_config()
+
+        api_instance = client.AppsV1Api()
+        deployment = api_instance.list_namespaced_deployment(namespace="nxs")
+
+        for item in deployment.items:
+            if item.metadata.labels["name"] == "nxs-backend-gpu":
+                item.spec.replicas = num_backends
+
+                api_response = api_instance.patch_namespaced_deployment(
+                    "nxs-backend-gpu", "nxs", item
+                )
+
+
 @router.get("/monitoring/backends", response_model=List[NxsBackendThroughputLog])
 async def get_monitoring_backend_reports():
     global redis_kv_server

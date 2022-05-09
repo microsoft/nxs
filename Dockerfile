@@ -12,6 +12,9 @@ COPY requirements.txt requirements.txt
 RUN python3 -m pip install pip --upgrade
 RUN python3 -m pip install -r requirements.txt
 
+RUN wget "https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl" -O /usr/bin/kubectl
+RUN chmod +x /usr/bin/kubectl
+
 #build tvm
 RUN cd /root && \
     git clone --recursive https://github.com/apache/tvm tvm && \
@@ -36,3 +39,5 @@ COPY nxs_types ./nxs_types
 COPY nxs_utils ./nxs_utils
 COPY configs.py .
 COPY scripts ./scripts
+
+

@@ -5,6 +5,16 @@ then
     ENABLE_API_V1="false"
 fi
 
+KUBECONFIG_FILE="/mnt/secrets-store/AksKubeConfig"
+if [ -f "$KUBECONFIG_FILE" ]; then
+    mkdir -p /root/.kube
+    cp -f $KUBECONFIG_FILE /root/.kube/config
+    kubectl get pods
+    ENABLE_KUBERNETES_SCALING="true"
+else 
+    ENABLE_KUBERNETES_SCALING="false"
+fi
+
 export PYTHONPATH=/app
 python3 main_processes/frontend/app.py --frontend_name $MY_POD_NAME --port $API_SERVER_PORT \
 --mongodb_uri $COSMOSDB_URL     \
@@ -19,4 +29,5 @@ python3 main_processes/frontend/app.py --frontend_name $MY_POD_NAME --port $API_
 --job_redis_queue_use_ssl $REDIS_USE_SSL \
 --tmp_dir $TMP_DIR \
 --api_key $API_KEY \
---enable_v1_api $ENABLE_API_V1
+--enable_v1_api $ENABLE_API_V1 \
+--enable_scaling $ENABLE_KUBERNETES_SCALING
