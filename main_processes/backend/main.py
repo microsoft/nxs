@@ -34,7 +34,7 @@ from nxs_libs.storage_cache import (
 )
 from nxs_types.log import NxsBackendThroughputLog
 from nxs_types.nxs_args import NxsBackendArgs
-from nxs_types.backend import GpuInfo
+from nxs_types.backend import GpuInfo, NxsBackendType
 from nxs_types.message import *
 from nxs_types.model import Framework, NxsCompositoryModel, NxsModel
 from nxs_types.scheduling_data import NxsSchedulingPerCompositorymodelPlan
@@ -285,13 +285,15 @@ class NxsBackendBaseProcess(ABC):
             if time.time() - upload_logs_t0 >= 5:
                 logs = self.global_dispatcher.generate_backend_monitoring_log()
 
-                print(logs)
-
                 try:
                     log_pusher.push(
                         GLOBAL_QUEUE_NAMES.BACKEND_LOGS,
                         NxsBackendThroughputLog(
-                            backend_name=self.backend_name, model_logs=logs
+                            backend_name=self.backend_name,
+                            backend_type=NxsBackendType.GPU
+                            if self.use_gpu
+                            else NxsBackendType.CPU,
+                            model_logs=logs,
                         ),
                     )
                 except Exception as e:

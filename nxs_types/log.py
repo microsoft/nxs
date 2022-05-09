@@ -2,6 +2,7 @@ import numpy as np
 from enum import Enum
 from typing import Dict, List, Optional
 from nxs_types import DataModel
+from nxs_types.backend import NxsBackendType
 
 
 class NxsBackendCmodelThroughputLog(DataModel):
@@ -17,4 +18,5 @@ class NxsBackendCmodelThroughputLog(DataModel):
 
 class NxsBackendThroughputLog(DataModel):
     backend_name: str
+    backend_type: NxsBackendType
     model_logs: List[NxsBackendCmodelThroughputLog] = []
