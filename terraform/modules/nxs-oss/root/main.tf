@@ -125,6 +125,7 @@ module keyvault_secrets {
     RedisUseSSL = var.use_azure_redis_cache ? module.azure_redis.redis_use_ssl : module.oss_redis.redis_use_ssl
     NxsUrl = "https://${module.aks.aks_domain_name_fqdn}"
     NxsSwaggerUrl = "https://${module.aks.aks_domain_name_fqdn}/docs"
+    AksKubeConfig = module.aks.aks_kube_config
   }
 }
 
