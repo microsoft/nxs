@@ -47,9 +47,13 @@ variable nxs_api_memory_requests {
     type = string
     default = "2Gi"
 }
-variable nxs_api_num_replicas {
+variable nxs_api_min_num_replicas {
     type = number
     default = 1
+}
+variable nxs_api_max_num_replicas {
+    type = number
+    default = 4
 }
 variable enable_api_v1 {
   type = bool

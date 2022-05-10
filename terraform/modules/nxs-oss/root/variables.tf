@@ -97,10 +97,16 @@ variable aks_max_gpu_node_count {
   default     = 1
 }
 
-variable aks_num_api_containers {
+variable aks_min_num_api_containers {
   type = number
-  description = "Number of replicas of api servers"
+  description = "Minimum number of replicas of api servers"
   default     = 1
+}
+
+variable aks_max_num_api_containers {
+  type = number
+  description = "Maximum number of replicas of api servers"
+  default     = 4
 }
 
 variable enable_api_v1 {

@@ -162,7 +162,8 @@ module aks_deployments {
   aks_client_cluster_ca_certificate = module.aks.aks_client_cluster_ca_certificate
   aks_configs_completed = module.aks_configs.aks_configs_completed
   nxs_backend_gpu_num_replicas = var.aks_min_gpu_node_count
-  nxs_api_num_replicas = var.aks_num_api_containers
+  nxs_api_min_num_replicas = var.aks_min_num_api_containers
+  nxs_api_max_num_replicas = var.aks_max_num_api_containers
   enable_api_v1 = var.enable_api_v1
   nxs_scheduler_image = var.nxs_scheduler_image
   nxs_scheduler_image_tag = var.nxs_scheduler_image_tag
