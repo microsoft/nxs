@@ -41,11 +41,11 @@ variable nxs_api_image_tag {
 }
 variable nxs_api_cpu_requests {
     type = string
-    default = "1000m"
+    default = "750m"
 }
 variable nxs_api_memory_requests {
     type = string
-    default = "2Gi"
+    default = "1.5Gi"
 }
 variable nxs_api_min_num_replicas {
     type = number
