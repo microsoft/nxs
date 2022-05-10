@@ -143,7 +143,7 @@ resource "kubectl_manifest" "nxs_api_servers_hpa" {
   wait_for_rollout = true
   yaml_body = templatefile("${path.module}/yaml/nxs_api_hpa.yaml",
     {
-      NUM_REPLICMAX_REPLICASAS: var.nxs_api_max_num_replicas      
+      MAX_REPLICAS: var.nxs_api_max_num_replicas      
     }
   )
   timeouts {
