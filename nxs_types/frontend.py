@@ -2,6 +2,10 @@ from typing import Dict, List, Optional
 from nxs_types import DataModel
 
 
+class BasicResponse(DataModel):
+    is_successful: bool = True
+
+
 class FrontendModelPipelineWorkloadReport(DataModel):
     pipeline_uuid: str
     session_uuid: str

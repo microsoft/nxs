@@ -519,7 +519,35 @@ class BackendBasicOutputProcess(BackendOutputProcess):
         self, metadata_list: List[LogMetadata], duration_secs: float
     ) -> Dict:
         total_requests = len(metadata_list)
-        return {"duration": duration_secs, "num_reqs": total_requests}
+        fps = total_requests / duration_secs
+
+        request_lats = []
+        for request_log in metadata_list:
+            input_t0 = request_log.extra["input_t0"]
+            postprocessing_t1 = request_log.extra["postprocessing_t1"]
+            e2e_lat = postprocessing_t1 - input_t0
+            request_lats.append(e2e_lat)
+
+        latency = {
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+        }
+
+        if request_lats:
+            latency = {
+                "mean": np.mean(request_lats),
+                "min": np.min(request_lats),
+                "max": np.max(request_lats),
+            }
+
+        return {
+            "output_pid": self.pid,
+            "duration": duration_secs,
+            "num_reqs": total_requests,
+            "fps": fps,
+            "latency": latency,
+        }
 
     # def process_metadata_list(self, metadata_list: List[LogMetadata], duration_secs: float) -> Dict:
     #     session_fps_dict = {}

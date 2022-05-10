@@ -26,6 +26,7 @@ from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
 from nxs_libs.storage.nxs_blobstore import NxsAzureBlobStorage
 from nxs_libs.storage.nxs_blobstore_async import NxsAsyncAzureBlobStorage
 from nxs_types.frontend import (
+    BasicResponse,
     FrontendModelPipelineWorkloadReport,
     FrontendWorkloadReport,
     TaskSummary,
@@ -48,6 +49,7 @@ from nxs_types.infer_result import (
     NxsInferResultType,
     NxsInferResultWithMetadata,
 )
+from nxs_types.log import NxsBackendCmodelThroughputLog, NxsBackendThroughputLog
 from nxs_types.message import (
     NxsMsgPinWorkload,
     NxsMsgReportInputWorkloads,
@@ -77,6 +79,9 @@ task_result_t0_dict = {}
 
 shared_queue_pusher: NxsQueuePusher = None
 redis_kv_server: NxsSimpleKeyValueDb = None
+
+backend_infos: List[NxsBackendThroughputLog] = []
+backend_infos_t0 = 0
 
 # FIXME: find a better way to do x-api-key check
 async def check_api_key(api_key_header: str = Security(api_key_header)):
@@ -542,6 +547,83 @@ if args.enable_benchmark_api:
         return {"status": "COMPLETED"}
 
 
+if args.enable_scaling:
+
+    @router.post("/backends/scale/gpu", response_model=BasicResponse)
+    async def scale_backends(
+        num_backends: int,
+        authenticated: bool = Depends(check_api_key),
+    ):
+        if num_backends < 0:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "num_backends must be at least 0",
+            )
+
+        deployment_items = []
+
+        try:
+            from kubernetes import client, config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace="nxs")
+            deployment_items = deployment.items
+        except Exception as e:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Internal error. Please try again later.",
+            )
+
+        found_gpu_backend_deployment = False
+        for item in deployment_items:
+            if item.metadata.labels["name"] == "nxs-backend-gpu":
+                item.spec.replicas = num_backends
+
+                try:
+                    api_response = api_instance.patch_namespaced_deployment(
+                        "nxs-backend-gpu", "nxs", item
+                    )
+
+                    found_gpu_backend_deployment = True
+                except Exception as e:
+                    raise HTTPException(
+                        status.HTTP_400_BAD_REQUEST,
+                        "Internal error. Please try again later.",
+                    )
+
+        if not found_gpu_backend_deployment:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Could not find nxs-backend-gpu deployment.",
+            )
+
+        return BasicResponse(is_successful=True)
+
+
+def get_backend_logs():
+    global redis_kv_server
+
+    logs = redis_kv_server.get_value(GLOBAL_QUEUE_NAMES.BACKEND_MONITOR_LOGS)
+    if logs is None:
+        logs = []
+
+    return logs
+
+
+@router.get("/monitoring/backends", response_model=List[NxsBackendThroughputLog])
+async def get_monitoring_backend_reports():
+    global redis_kv_server, backend_infos, backend_infos_t0
+
+    logs = get_backend_logs()
+
+    backend_infos_t0 = time.time()
+    backend_infos = logs
+
+    return logs
+
+
 async def _infer_single(
     data: Union[bytes, str],
     pipeline_uuid: str,
@@ -551,8 +633,16 @@ async def _infer_single(
 ) -> NxsInferResult:
     global tasks_data, shared_queue_pusher, task_result_dict, tasks_summary_data
     global task_summary_processor, session_params, redis_kv_server
+    global backend_infos_t0, backend_infos
 
     entry_t0 = time.time()
+
+    if entry_t0 - backend_infos_t0 > 30:
+        backend_infos = get_backend_logs()
+        backend_infos_t0 = time.time()
+
+    if not backend_infos:
+        raise Exception("No backend is available.")
 
     task_uuid = generate_uuid()
 
@@ -646,8 +736,16 @@ async def _infer_single(
 async def _infer_tensors(infer_request: NxsTensorsInferRequest):
     global tasks_data, shared_queue_pusher, task_result_dict
     global tasks_summary_data, task_summary_processor, session_params, redis_kv_server
+    global backend_infos_t0, backend_infos
 
     entry_t0 = time.time()
+
+    if entry_t0 - backend_infos_t0 > 30:
+        backend_infos = get_backend_logs()
+        backend_infos_t0 = time.time()
+
+    if not backend_infos:
+        raise Exception("No backend is available. Please bring up some backends.")
 
     task_uuid = generate_uuid()
     task_summary = TaskSummary(

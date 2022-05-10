@@ -146,3 +146,7 @@ output aks_domain_name_fqdn {
   value = azurerm_public_ip.nxs_public_ip.fqdn
   depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
 }
+
+output aks_kube_config {
+  value = azurerm_kubernetes_cluster.nxs_aks.kube_config_raw
+}

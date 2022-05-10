@@ -125,6 +125,7 @@ module keyvault_secrets {
     RedisUseSSL = var.use_azure_redis_cache ? module.azure_redis.redis_use_ssl : module.oss_redis.redis_use_ssl
     NxsUrl = "https://${module.aks.aks_domain_name_fqdn}"
     NxsSwaggerUrl = "https://${module.aks.aks_domain_name_fqdn}/docs"
+    AksKubeConfig = module.aks.aks_kube_config
   }
 }
 
@@ -161,12 +162,15 @@ module aks_deployments {
   aks_client_cluster_ca_certificate = module.aks.aks_client_cluster_ca_certificate
   aks_configs_completed = module.aks_configs.aks_configs_completed
   nxs_backend_gpu_num_replicas = var.aks_min_gpu_node_count
-  nxs_api_num_replicas = var.aks_num_api_containers
+  nxs_api_min_num_replicas = var.aks_min_num_api_containers
+  nxs_api_max_num_replicas = var.aks_max_num_api_containers
   enable_api_v1 = var.enable_api_v1
   nxs_scheduler_image = var.nxs_scheduler_image
   nxs_scheduler_image_tag = var.nxs_scheduler_image_tag
   nxs_workload_manager_image = var.nxs_workload_manager_image
   nxs_workload_manager_image_tag = var.nxs_workload_manager_image_tag
+  nxs_backend_monitor_image = var.nxs_backend_monitor_image
+  nxs_backend_monitor_image_tag = var.nxs_backend_monitor_image_tag
   nxs_backend_gpu_image = var.nxs_backend_gpu_image
   nxs_backend_gpu_image_tag = var.nxs_backend_gpu_image_tag
   nxs_api_image = var.nxs_api_image

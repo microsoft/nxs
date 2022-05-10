@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
 WORKDIR /app
 
@@ -11,6 +11,9 @@ COPY requirements.txt requirements.txt
 
 RUN python3 -m pip install pip --upgrade
 RUN python3 -m pip install -r requirements.txt
+
+RUN wget "https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl" -O /usr/bin/kubectl
+RUN chmod +x /usr/bin/kubectl
 
 #build tvm
 RUN cd /root && \
@@ -36,3 +39,5 @@ COPY nxs_types ./nxs_types
 COPY nxs_utils ./nxs_utils
 COPY configs.py .
 COPY scripts ./scripts
+
+

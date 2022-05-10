@@ -97,10 +97,16 @@ variable aks_max_gpu_node_count {
   default     = 1
 }
 
-variable aks_num_api_containers {
+variable aks_min_num_api_containers {
   type = number
-  description = "Number of replicas of api servers"
+  description = "Minimum number of replicas of api servers"
   default     = 1
+}
+
+variable aks_max_num_api_containers {
+  type = number
+  description = "Maximum number of replicas of api servers"
+  default     = 4
 }
 
 variable enable_api_v1 {
@@ -146,6 +152,16 @@ variable nxs_workload_manager_image {
 }
 
 variable nxs_workload_manager_image_tag {
+  type = string
+  default = "v0.1.0"
+}
+
+variable nxs_backend_monitor_image {
+  type = string
+  default = "ossnxs.azurecr.io/nxs/dev"
+}
+
+variable nxs_backend_monitor_image_tag {
   type = string
   default = "v0.1.0"
 }

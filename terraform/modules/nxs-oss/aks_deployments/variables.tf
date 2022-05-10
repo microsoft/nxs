@@ -41,15 +41,19 @@ variable nxs_api_image_tag {
 }
 variable nxs_api_cpu_requests {
     type = string
-    default = "1000m"
+    default = "750m"
 }
 variable nxs_api_memory_requests {
     type = string
-    default = "2Gi"
+    default = "1.5Gi"
 }
-variable nxs_api_num_replicas {
+variable nxs_api_min_num_replicas {
     type = number
     default = 1
+}
+variable nxs_api_max_num_replicas {
+    type = number
+    default = 4
 }
 variable enable_api_v1 {
   type = bool
@@ -87,6 +91,23 @@ variable nxs_workload_manager_cpu_requests {
     default = "250m"
 }
 variable nxs_workload_manager_memory_requests {
+    type = string
+    default = "0.5Gi"
+}
+
+variable nxs_backend_monitor_image {
+    type = string
+    default = "ossnxs.azurecr.io/nxs/dev"
+}
+variable nxs_backend_monitor_image_tag {
+    type = string
+    default = "v0.1.0"
+}
+variable nxs_backend_monitor_cpu_requests {
+    type = string
+    default = "250m"
+}
+variable nxs_backend_monitor_memory_requests {
     type = string
     default = "0.5Gi"
 }

@@ -32,8 +32,9 @@ from nxs_libs.storage_cache import (
     NxsBaseStorageCache,
     NxsLocalStorageCache,
 )
+from nxs_types.log import NxsBackendThroughputLog
 from nxs_types.nxs_args import NxsBackendArgs
-from nxs_types.backend import GpuInfo
+from nxs_types.backend import GpuInfo, NxsBackendType
 from nxs_types.message import *
 from nxs_types.model import Framework, NxsCompositoryModel, NxsModel
 from nxs_types.scheduling_data import NxsSchedulingPerCompositorymodelPlan
@@ -228,6 +229,10 @@ class NxsBackendBaseProcess(ABC):
         t0 = time.time()
         t1 = time.time()
 
+        upload_logs_t0 = time.time()
+
+        log_pusher = create_queue_pusher_from_args(args, NxsQueueType.REDIS)
+
         while not self.global_dispatcher_stop_flag:
             if time.time() - t0 < self.global_dispatcher_period_secs:
                 time.sleep(0.1)
@@ -276,6 +281,25 @@ class NxsBackendBaseProcess(ABC):
 
             self.global_dispatcher_lock.release()
 
+            # update log
+            if time.time() - upload_logs_t0 >= 5:
+                logs = self.global_dispatcher.generate_backend_monitoring_log()
+
+                try:
+                    log_pusher.push(
+                        GLOBAL_QUEUE_NAMES.BACKEND_LOGS,
+                        NxsBackendThroughputLog(
+                            backend_name=self.backend_name,
+                            backend_type=NxsBackendType.GPU
+                            if self.use_gpu
+                            else NxsBackendType.CPU,
+                            model_logs=logs,
+                        ),
+                    )
+                except Exception as e:
+                    print(e)
+                upload_logs_t0 = time.time()
+
             t0 = time.time()
 
     def _process_unscheduling_plan(
@@ -314,6 +338,8 @@ class NxsBackendBaseProcess(ABC):
                 # print(f"to_delete_folder: {component_model_dir_path}")
                 self._log(f"to_delete_folder: {component_model_dir_path}")
                 shutil.rmtree(component_model_dir_path)
+
+            self.global_dispatcher.remove_state(cmodel_uuid)
 
             self.infer_runtime_map.pop(cmodel_uuid)
             # print(f"Stopped model {cmodel_uuid}")
@@ -509,7 +535,7 @@ class NxsBackendBaseProcess(ABC):
 
                 # create dispatcher for input_process
                 if idx == 0:
-                    dispatcher_args = {"type": BackendDispatcherType.BASIC}
+                    dispatcher_args = {"type": BackendDispatcherType.BASIC_MONITORING}
                 else:
                     dispatcher_args = None
 
@@ -523,7 +549,7 @@ class NxsBackendBaseProcess(ABC):
                 stop_flags.append(stop_preprocessors_flag)
 
                 input_process = BackendBasicInputProcess(
-                    args=None,
+                    args=self.args,
                     component_model=component_model,
                     component_model_plan=component_model_plan,
                     preprocessing_fn_path=component_preprocessing_paths[idx],

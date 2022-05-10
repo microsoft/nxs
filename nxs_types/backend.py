@@ -1,5 +1,11 @@
+from enum import Enum
 from typing import List, Optional
 from nxs_types import DataModel
+
+
+class NxsBackendType(str, Enum):
+    CPU = "cpu"
+    GPU = "gpu"
 
 
 class GpuInfo(DataModel):

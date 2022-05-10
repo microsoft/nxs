@@ -75,6 +75,26 @@ resource "kubectl_manifest" "nxs_workload_manager" {
   ]
 }
 
+resource "kubectl_manifest" "nxs_backend_monitor" {
+  wait = true
+  wait_for_rollout = true
+  #yaml_body = file("${path.module}/yaml/nxs_backend_monitor.yaml")
+  yaml_body = templatefile("${path.module}/yaml/nxs_backend_monitor.yaml",
+    {
+      IMAGE: var.nxs_backend_monitor_image
+      IMAGE_TAG: var.nxs_backend_monitor_image_tag
+      CPU_REQUEST: var.nxs_backend_monitor_cpu_requests
+      MEMORY_REQUEST: var.nxs_backend_monitor_memory_requests
+    }
+  )
+  timeouts {
+    create = "30m"
+  }
+  depends_on = [
+    kubectl_manifest.nxs_scheduler
+  ]
+}
+
 resource "kubectl_manifest" "nxs_gpu_backends" {
   wait = true
   wait_for_rollout = true
@@ -102,7 +122,7 @@ resource "kubectl_manifest" "nxs_api_servers" {
   #yaml_body = file("${path.module}/yaml/nxs_api.yaml")
   yaml_body = templatefile("${path.module}/yaml/nxs_api.yaml",
     {
-      NUM_REPLICAS: var.nxs_api_num_replicas
+      NUM_REPLICAS: var.nxs_api_min_num_replicas
       IMAGE: var.nxs_api_image
       IMAGE_TAG: var.nxs_api_image_tag
       CPU_REQUEST: var.nxs_api_cpu_requests
@@ -115,6 +135,22 @@ resource "kubectl_manifest" "nxs_api_servers" {
   }
   depends_on = [
     kubectl_manifest.nxs_gpu_backends
+  ]
+}
+
+resource "kubectl_manifest" "nxs_api_servers_hpa" {
+  wait = true
+  wait_for_rollout = true
+  yaml_body = templatefile("${path.module}/yaml/nxs_api_hpa.yaml",
+    {
+      MAX_REPLICAS: var.nxs_api_max_num_replicas      
+    }
+  )
+  timeouts {
+    create = "30m"
+  }
+  depends_on = [
+    kubectl_manifest.nxs_api_servers
   ]
 }
 

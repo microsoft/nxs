@@ -112,6 +112,10 @@ spec:
           objectType: secret
           objectVersion: ""
         - |
+          objectName: AksKubeConfig
+          objectType: secret
+          objectVersion: ""
+        - |
           objectName: RedisAddress
           objectType: secret
           objectVersion: ""

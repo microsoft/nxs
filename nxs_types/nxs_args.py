@@ -42,6 +42,7 @@ class NxsApiArgs(NxsBaseArgs):
     api_key: str = ""
     enable_benchmark_api: bool = False
     enable_v1_api: bool = False
+    enable_scaling: bool = False
 
 
 class NxsSchedulerArgs(NxsBaseArgs):
@@ -56,6 +57,10 @@ class NxsSchedulerArgs(NxsBaseArgs):
 class NxsBackendArgs(NxsBaseArgs):
     backend_name: str
     force_cpu: bool = False
+
+
+class NxsBackendMonitorArgs(NxsBaseArgs):
+    polling_interval_secs: float = 5
 
 
 class NxsWorkloadManagerArgs(NxsBaseArgs):

@@ -146,9 +146,6 @@ class BackendPreprocessingProcess:
                         carry_over_extras = {}
 
                 metadata = {"extra": carry_over_extras}
-                # metadata["extra"][self.component_model.model_uuid] = {}
-                # if "preprocessing_t0" not in metadata["extra"]:
-                #     metadata["extra"]["preprocessing_t0"] = time.time()
 
                 self.request_entering(metadata["extra"])
 

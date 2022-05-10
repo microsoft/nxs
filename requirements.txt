@@ -37,3 +37,4 @@ transformers==4.16.1
 SentencePiece==0.1.96
 Pillow==9.0.1
 aiofile==3.7.4
+kubernetes==17.17.0

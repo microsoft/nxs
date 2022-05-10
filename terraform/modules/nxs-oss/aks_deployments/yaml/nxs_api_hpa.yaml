@@ -1,0 +1,13 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:  
+  name: nxs-api-servers-hpa
+  namespace: nxs
+spec:
+  maxReplicas: ${MAX_REPLICAS}
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nxs-api-servers
+  targetCPUUtilizationPercentage: 75
