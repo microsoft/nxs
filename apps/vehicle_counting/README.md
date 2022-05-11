@@ -148,6 +148,13 @@ Parameters:
 
 Return: list of video ids with queried status.
 
+Video Status:
+- PENDING   : user starts an experiment but vehicle counting app container is not yet started.
+- RUNNING   : vehicle counting app container is running
+- FAILED    : failed experiment due to invalid input arguments or invalid video stream url
+- STOPPED   : user stops the experiment
+- COMPLETED : experiment runs successfully until video stream ends
+
 ### *Terminate task: [POST] /video/terminate*
 
 Parameters:
