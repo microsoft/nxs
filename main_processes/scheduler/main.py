@@ -18,6 +18,11 @@ from nxs_libs.object.backend_runtime import NxsBackendRuntime
 from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
 from nxs_libs.interface.scheduling_policy import BaseSchedulingPolicy
 from nxs_types.backend import BackendInfo
+from nxs_types.log import (
+    NxsSchedulerLog,
+    SimplifiedNxsSchedulingPerBackendPlan,
+    SimplifiedNxsSchedulingRequest,
+)
 from nxs_types.model import (
     NxsCompositoryModel,
     NxsModel,
@@ -79,6 +84,10 @@ class NxsSchedulerProcess:
         self.compository_model_info_cache = LRU(self.PIPELINE_CACHE_SIZE * 5)
 
         self.last_requests: List[NxsSchedulingRequest] = []
+
+        self.kv_store = create_simple_key_value_db_from_args(
+            args, NxsSimpleKeyValueDbType.REDIS
+        )
 
         self.log_prefix = "SCHEDULER"
         setup_logger()
@@ -282,6 +291,36 @@ class NxsSchedulerProcess:
                 )
 
         self.last_requests = _scheduling_requests
+
+        scheduling_log = NxsSchedulerLog()
+        for request in scheduling_requests:
+            scheduling_log.scheduling_requests.append(
+                SimplifiedNxsSchedulingRequest(
+                    pipeline_uuid=request.pipeline_info.pipeline_uuid,
+                    session_uuid=request.session_uuid,
+                    cmodel_uuid_list=[
+                        cmodel.main_model.model_uuid
+                        for cmodel in request.pipeline_info.models
+                    ],
+                    requested_fps=request.requested_fps,
+                )
+            )
+
+        for plan in scheduling_plans:
+            scheduling_log.scheduling_plans.append(
+                SimplifiedNxsSchedulingPerBackendPlan(
+                    backend_name=plan.backend_name,
+                    cmodel_uuid_list=[
+                        cmodel_plan.model_uuid
+                        for cmodel_plan in plan.compository_model_plans
+                    ],
+                )
+            )
+
+        self.kv_store.set_value(
+            GLOBAL_QUEUE_NAMES.SCHEDULER_LOGS,
+            scheduling_log,
+        )
 
     def _clone_nxs_scheduling_request(
         self, request: NxsSchedulingRequest
