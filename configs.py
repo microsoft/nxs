@@ -17,6 +17,7 @@ STORAGE_PREDEFINED_EXTRAS_PATH = "w4extras"
 # QUEUE INFO
 class GLOBAL_QUEUE_NAMES:
     SCHEDULER = "nxs_scheduler"
+    SCHEDULER_LOGS = "nxs_scheduler_logs"
     WORKLOAD_MANAGER = "nxs_workload_manager"
     BACKEND_LOGS = "nxs_backend_logs"
     BACKEND_MONITOR_LOGS = "nxs_backend_monitor_logs"

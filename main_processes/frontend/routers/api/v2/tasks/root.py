@@ -49,7 +49,11 @@ from nxs_types.infer_result import (
     NxsInferResultType,
     NxsInferResultWithMetadata,
 )
-from nxs_types.log import NxsBackendCmodelThroughputLog, NxsBackendThroughputLog
+from nxs_types.log import (
+    NxsBackendCmodelThroughputLog,
+    NxsBackendThroughputLog,
+    NxsSchedulerLog,
+)
 from nxs_types.message import (
     NxsMsgPinWorkload,
     NxsMsgReportInputWorkloads,
@@ -622,6 +626,26 @@ async def get_monitoring_backend_reports():
     backend_infos = logs
 
     return logs
+
+
+def get_scheduler_log() -> NxsSchedulerLog:
+    global redis_kv_server
+
+    scheduler_log: NxsSchedulerLog = redis_kv_server.get_value(
+        GLOBAL_QUEUE_NAMES.SCHEDULER_LOGS
+    )
+
+    if scheduler_log is None:
+        scheduler_log = NxsSchedulerLog()
+
+    return scheduler_log
+
+
+@router.get("/monitoring/scheduler", response_model=NxsSchedulerLog)
+async def get_monitoring_scheduler_report(
+    authenticated: bool = Depends(check_api_key),
+):
+    return get_scheduler_log()
 
 
 async def _infer_single(
