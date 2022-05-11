@@ -25,6 +25,7 @@ from nxs_libs.interface.frontend.simple_interface import (
 from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
 from nxs_libs.storage.nxs_blobstore import NxsAzureBlobStorage
 from nxs_libs.storage.nxs_blobstore_async import NxsAsyncAzureBlobStorage
+from nxs_types.backend import NxsBackendType
 from nxs_types.frontend import (
     BasicResponse,
     FrontendModelPipelineWorkloadReport,
@@ -51,6 +52,7 @@ from nxs_types.infer_result import (
 )
 from nxs_types.log import (
     NxsBackendCmodelThroughputLog,
+    NxsBackendDeploymentsLog,
     NxsBackendThroughputLog,
     NxsSchedulerLog,
 )
@@ -606,7 +608,7 @@ if args.enable_scaling:
         return BasicResponse(is_successful=True)
 
 
-def get_backend_logs():
+def get_backend_logs() -> List[NxsBackendThroughputLog]:
     global redis_kv_server
 
     logs = redis_kv_server.get_value(GLOBAL_QUEUE_NAMES.BACKEND_MONITOR_LOGS)
@@ -617,7 +619,9 @@ def get_backend_logs():
 
 
 @router.get("/monitoring/backends", response_model=List[NxsBackendThroughputLog])
-async def get_monitoring_backend_reports():
+async def get_monitoring_backend_reports(
+    authenticated: bool = Depends(check_api_key),
+):
     global redis_kv_server, backend_infos, backend_infos_t0
 
     logs = get_backend_logs()
@@ -626,6 +630,61 @@ async def get_monitoring_backend_reports():
     backend_infos = logs
 
     return logs
+
+
+if args.enable_scaling:
+
+    def get_num_deployment_replicas(deployment_name: str) -> int:
+        num_replicas = 0
+        deployment_items = []
+
+        try:
+            from kubernetes import client, config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace="nxs")
+            deployment_items = deployment.items
+        except Exception as e:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Internal error. Please try again later.",
+            )
+
+        for item in deployment_items:
+            if item.metadata.labels["name"] == deployment_name:
+                num_replicas = item.spec.replicas
+
+        return num_replicas
+
+    @router.get(
+        "/monitoring/backend_deployments", response_model=NxsBackendDeploymentsLog
+    )
+    async def get_backend_deployments(
+        authenticated: bool = Depends(check_api_key),
+    ):
+        num_requested_cpu_backends = 0
+        num_requested_gpu_backends = 0
+        num_available_cpu_backends = 0
+        num_available_gpu_backends = 0
+
+        backend_infos = get_backend_logs()
+        for backend_info in backend_infos:
+            if backend_info.backend_type == NxsBackendType.CPU:
+                num_available_cpu_backends += 1
+            elif backend_info.backend_type == NxsBackendType.GPU:
+                num_available_gpu_backends += 1
+
+        num_requested_cpu_backends = get_num_deployment_replicas("nxs-backend-cpu")
+        num_requested_gpu_backends = get_num_deployment_replicas("nxs-backend-gpu")
+
+        return NxsBackendDeploymentsLog(
+            num_requested_cpu_backends=num_requested_cpu_backends,
+            num_available_cpu_backends=num_available_cpu_backends,
+            num_requested_gpu_backends=num_requested_gpu_backends,
+            num_available_gpu_backends=num_available_gpu_backends,
+        )
 
 
 def get_scheduler_log() -> NxsSchedulerLog:
