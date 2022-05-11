@@ -42,3 +42,10 @@ class SimplifiedNxsSchedulingPerBackendPlan(DataModel):
 class NxsSchedulerLog(DataModel):
     scheduling_requests: List[SimplifiedNxsSchedulingRequest] = []
     scheduling_plans: List[SimplifiedNxsSchedulingPerBackendPlan] = []
+
+
+class NxsBackendDeploymentsLog(DataModel):
+    num_requested_cpu_backends: int = 0
+    num_available_cpu_backends: int = 0
+    num_requested_gpu_backends: int = 0
+    num_available_gpu_backends: int = 0
