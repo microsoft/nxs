@@ -85,6 +85,8 @@ module db {
 module storage {
   source = "../storage"
   base    = local.base_config
+  data_retention_days = var.data_retention_days
+  delete_snapshot_retention_days = var.delete_snapshot_retention_days
 }
 
 module keyvault_secrets {
