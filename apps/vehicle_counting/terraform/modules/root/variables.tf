@@ -110,3 +110,13 @@ variable aks_max_cpu_node_count {
   description = "Maximum number of CPUs nodes to be used in NXS for scheduler, workload manager, api servers and cpu inference nodes."
   default     = 3
 }
+
+variable data_retention_days {
+    type = number
+    default = 18
+}
+
+variable data_delete_snapshot_retention_days {
+    type = number
+    default = 3
+}
