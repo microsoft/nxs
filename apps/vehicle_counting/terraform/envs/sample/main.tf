@@ -24,5 +24,5 @@ module "nxs" {
   nxsapp_api_container  = ""              # path to api container e.g., ossnxs.azurecr.io/vcapi:v0.1.2
   nxsapp_worker_container = ""            # path to worker container e.g., ossnxs.azurecr.io/vcworker:v0.1
   data_retention_days   = 18              # data retention in days for debug data
-  data_delete_snapshot_retention_days = 3 # snapshot retention in days after deleting debug data
+  delete_snapshot_retention_days = 3      # snapshot retention in days after deleting debug data
 }

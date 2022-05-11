@@ -44,7 +44,7 @@ resource "azurerm_storage_management_policy" "delete_policy" {
         delete_after_days_since_modification_greater_than          = var.data_retention_days
       }
       snapshot {
-        delete_after_days_since_creation_greater_than = var.data_delete_snapshot_retention_days
+        delete_after_days_since_creation_greater_than = var.delete_snapshot_retention_days
       }
     }
   }
