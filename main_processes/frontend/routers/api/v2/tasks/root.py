@@ -89,6 +89,9 @@ redis_kv_server: NxsSimpleKeyValueDb = None
 backend_infos: List[NxsBackendThroughputLog] = []
 backend_infos_t0 = 0
 
+scheduler_info: NxsSchedulerLog = None
+scheduler_info_t0 = 0
+
 # FIXME: find a better way to do x-api-key check
 async def check_api_key(api_key_header: str = Security(api_key_header)):
     if args.api_key == "":
@@ -704,7 +707,12 @@ def get_scheduler_log() -> NxsSchedulerLog:
 async def get_monitoring_scheduler_report(
     authenticated: bool = Depends(check_api_key),
 ):
-    return get_scheduler_log()
+    global scheduler_info, scheduler_info_t0
+
+    scheduler_info = get_scheduler_log()
+    scheduler_info_t0 = time.time()
+
+    return scheduler_info
 
 
 async def _infer_single(
@@ -717,15 +725,46 @@ async def _infer_single(
     global tasks_data, shared_queue_pusher, task_result_dict, tasks_summary_data
     global task_summary_processor, session_params, redis_kv_server
     global backend_infos_t0, backend_infos
+    global scheduler_info, scheduler_info_t0
 
     entry_t0 = time.time()
 
-    if entry_t0 - backend_infos_t0 > 30:
+    if entry_t0 - backend_infos_t0 > 15:
         backend_infos = get_backend_logs()
         backend_infos_t0 = time.time()
 
     if not backend_infos:
         raise Exception("No backend is available.")
+
+    to_wait = True
+    if not args.wait_for_models:
+        if entry_t0 - scheduler_info_t0 > 15:
+            scheduler_info = get_scheduler_log()
+            scheduler_info_t0 = time.time()
+
+        cmodel_uuids: List[str] = []
+        for request in scheduler_info.scheduling_requests:
+            if request.pipeline_uuid == pipeline_uuid:
+                cmodel_uuids.extend(request.cmodel_uuid_list)
+
+        if not cmodel_uuids:
+            # models are not scheduled yet
+            to_wait = False
+
+        for cmodel_uuid in cmodel_uuids:
+            found_cmodel = False
+            for plan in scheduler_info.scheduling_plans:
+                for cmodel_uuid_on_backend in plan.cmodel_uuid_list:
+                    if cmodel_uuid_on_backend == cmodel_uuid:
+                        found_cmodel = True
+                        break
+
+                if found_cmodel:
+                    break
+
+            if not found_cmodel:
+                to_wait = False
+                break
 
     task_uuid = generate_uuid()
 
@@ -757,6 +796,9 @@ async def _infer_single(
     #     )
 
     tasks_data.append((pipeline_uuid, session_uuid))
+
+    if not to_wait:
+        raise Exception("Model is not ready to serve. Please try again later.")
 
     pipeline_uuids = copy.deepcopy(pipeline.pipeline)
     pipeline_uuids.append(args.frontend_name)
@@ -823,7 +865,7 @@ async def _infer_tensors(infer_request: NxsTensorsInferRequest):
 
     entry_t0 = time.time()
 
-    if entry_t0 - backend_infos_t0 > 30:
+    if entry_t0 - backend_infos_t0 > 15:
         backend_infos = get_backend_logs()
         backend_infos_t0 = time.time()
 

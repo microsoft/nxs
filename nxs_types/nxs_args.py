@@ -43,6 +43,7 @@ class NxsApiArgs(NxsBaseArgs):
     enable_benchmark_api: bool = False
     enable_v1_api: bool = False
     enable_scaling: bool = False
+    wait_for_models: bool = True
 
 
 class NxsSchedulerArgs(NxsBaseArgs):
