@@ -25,6 +25,11 @@ def parse_args():
         default=False,
         type=lambda x: (str(x).lower() == "true"),
     )
+    parser.add_argument(
+        "--wait_for_models",
+        default=True,
+        type=lambda x: (str(x).lower() == "true"),
+    )
     _args = parser.parse_args()
 
     args = NxsApiArgs(**(vars(_args)))
