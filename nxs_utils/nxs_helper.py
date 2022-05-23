@@ -31,13 +31,13 @@ def init_redis_client(address: str, port: int, password: str, is_using_ssl=False
             )
 
         # try to ping
-        while True:
-            try:
-                client.ping()
-                break
-            except:
-                print("Redis server is not available ...")
-                time.sleep(1)
+        # while True:
+        #     try:
+        #         client.ping()
+        #         break
+        #     except:
+        #         print("Redis server is not available ...")
+        #         time.sleep(1)
 
         return client
     else:
