@@ -2,7 +2,7 @@ import time
 import pickle
 import numpy as np
 from threading import Thread
-from typing import List, Dict
+from typing import Any, List, Dict
 from nxs_libs.queue import NxsQueuePuller, NxsQueuePusher
 from nxs_utils.nxs_helper import init_redis_client
 from nxs_utils.logging import write_log, NxsLogLevel
@@ -71,6 +71,46 @@ class NxsRedisQueuePuller(NxsQueuePuller):
         self._monitor_thread_alive_flag = True
         self._monitor_thread.start()
 
+    def _recreate_client(self):
+        try:
+            self._client = init_redis_client(
+                self._address, self._port, self._password, self._is_using_ssl
+            )
+        except:
+            pass
+
+    def _set_with_retry(self, topic: str, data: Any, expiration_duration_secs: int = 0):
+        while True:
+            try:
+                self._client.set(topic, data)
+
+                if expiration_duration_secs > 0:
+                    self._client.expire(topic, expiration_duration_secs)
+
+                break
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
+
+    def _push_with_retry(self, topic: str, data: Any, expiration_duration_secs: int):
+        while True:
+            try:
+                self._client.rpush(topic, data)
+                self._client.expire(topic, expiration_duration_secs)
+                break
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
+
+    def _get_with_retry(self, topic: str):
+        while True:
+            try:
+                data = self._client.get(topic)
+                return data
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
+
     def _reader_thread_fn(self, thread_id: int):
         topic = f"{self._topic}_{thread_id}"
         self._log(f"Read thread {thread_id} was created for topic {topic} !!!")
@@ -82,14 +122,17 @@ class NxsRedisQueuePuller(NxsQueuePuller):
                 time.sleep(0.001)
                 continue
 
-            data = self._client.blpop([topic], timeout=self._max_timeout_secs)
-            if data is None:
-                time.sleep(0.001)
-                continue
+            try:
+                data = self._client.blpop([topic], timeout=self._max_timeout_secs)
+                if data is None:
+                    time.sleep(0.001)
+                    continue
 
-            _, d = data
-            d = pickle.loads(d)
-            self._buf.append(d)
+                _, d = data
+                d = pickle.loads(d)
+                self._buf.append(d)
+            except:
+                time.sleep(0.01)
 
         self._log(
             f"Reader thread {thread_id} / {self._num_partitions} is being terminated!!!"
@@ -106,18 +149,22 @@ class NxsRedisQueuePuller(NxsQueuePuller):
                 time.sleep(0.1)
                 continue
 
-            num_partitions = self._get_topic_num_partitions()
+            try:
+                num_partitions = self._get_topic_num_partitions()
 
-            # scale # threads if needed
-            delta = abs(num_partitions - self._num_partitions)
-            for _ in range(delta):
-                if num_partitions > self._num_partitions:
-                    self._add_reader_thread()
-                elif num_partitions < self._num_partitions:
-                    self._remove_read_thread()
+                # scale # threads if needed
+                delta = abs(num_partitions - self._num_partitions)
+                for _ in range(delta):
+                    if num_partitions > self._num_partitions:
+                        self._add_reader_thread()
+                    elif num_partitions < self._num_partitions:
+                        self._remove_read_thread()
 
-            self._num_partitions = num_partitions
-            self._check_num_partitions_t0 = time.time()
+                self._num_partitions = num_partitions
+                self._check_num_partitions_t0 = time.time()
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
 
         self._log("Monitoring thread is being terminated!!!")
 
@@ -139,7 +186,9 @@ class NxsRedisQueuePuller(NxsQueuePuller):
         self._reader_thread_alive_flags.pop(-1)
 
     def _get_topic_num_partitions(self) -> int:
-        data = self._client.get(self._topic)
+        # data = self._client.get(self._topic)
+        data = self._get_with_retry(self._topic)
+
         if not isinstance(data, type(None)):
             return pickle.loads(data)
 
@@ -196,7 +245,8 @@ class NxsRedisQueuePuller(NxsQueuePuller):
         return len(self._buf)
 
     def set_num_partitions(self, num_partitions: int):
-        self._client.set(self._topic, pickle.dumps(num_partitions))
+        # self._client.set(self._topic, pickle.dumps(num_partitions))
+        self._set_with_retry(self._topic, pickle.dumps(num_partitions))
 
 
 class NxsRedisQueuePusher(NxsQueuePusher):
@@ -228,10 +278,51 @@ class NxsRedisQueuePusher(NxsQueuePusher):
 
         self._check_num_partitions_period_secs = 3
         self._new_topic_num_partitions = 1
-        self._expiration_duration_secs = 3600
+        self._expiration_duration_secs: int = 3600
+
+    def _recreate_client(self):
+        try:
+            self._client = init_redis_client(
+                self._address, self._port, self._password, self._is_using_ssl
+            )
+        except:
+            pass
+
+    def _set_with_retry(self, topic: str, data: Any, expiration_duration_secs: int = 0):
+        while True:
+            try:
+                self._client.set(topic, data)
+
+                if expiration_duration_secs > 0:
+                    self._client.expire(topic, expiration_duration_secs)
+
+                break
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
+
+    def _push_with_retry(self, topic: str, data: Any, expiration_duration_secs: int):
+        while True:
+            try:
+                self._client.rpush(topic, data)
+                self._client.expire(topic, expiration_duration_secs)
+                break
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
+
+    def _get_with_retry(self, topic: str):
+        while True:
+            try:
+                data = self._client.get(topic)
+                return data
+            except:
+                time.sleep(0.01)
+                self._recreate_client()
 
     def create_topic(self, topic: str):
-        self._client.set(topic, pickle.dumps(self._new_topic_num_partitions))
+        # self._client.set(topic, pickle.dumps(self._new_topic_num_partitions))
+        self._set_with_retry(topic, pickle.dumps(self._new_topic_num_partitions))
         self._topic2partitions[topic] = self._new_topic_num_partitions
         self._topic2timestamp[topic] = time.time()
 
@@ -255,8 +346,11 @@ class NxsRedisQueuePusher(NxsQueuePusher):
             topic, chosen_partition_idx
         )
 
-        self._client.rpush(partitioned_topic, pickle.dumps(data))
-        self._client.expire(partitioned_topic, self._expiration_duration_secs)
+        # self._client.rpush(partitioned_topic, pickle.dumps(data))
+        # self._client.expire(partitioned_topic, self._expiration_duration_secs)
+        self._push_with_retry(
+            partitioned_topic, pickle.dumps(data), self._expiration_duration_secs
+        )
 
     def push_to_session(self, topic: str, session_uuid: str, data) -> None:
         new_topic = f"{topic}_{session_uuid}"
@@ -274,20 +368,23 @@ class NxsRedisQueuePusher(NxsQueuePusher):
 
     def update_expiration_duration_secs(self, duration_secs: float):
         assert duration_secs >= 30, "duration_secs should be larger than 30 !!!"
-        self._expiration_duration_secs = duration_secs
+        self._expiration_duration_secs = int(duration_secs)
 
     def _get_partitioned_topic_name(self, topic: str, partition_idx: int):
         return f"{topic}_{partition_idx}"
 
     def _get_topic_num_partitions(self, topic) -> int:
-        data = self._client.get(topic)
+        # data = self._client.get(topic)
+        data = self._get_with_retry(topic)
+
         if not isinstance(data, type(None)):
             return pickle.loads(data)
 
         return 1
 
     def _set_topic_num_partitions(self, topic: str, num_partitions: int):
-        self._client.set(topic, pickle.dumps(num_partitions))
+        # self._client.set(topic, pickle.dumps(num_partitions))
+        self._set_with_retry(topic, pickle.dumps(num_partitions))
 
     def update_config(self, config: dict = {}):
         if "num_partitions" in config:
