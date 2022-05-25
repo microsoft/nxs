@@ -1,6 +1,7 @@
 import copy
 import logging
 import shutil
+import zipfile
 import multiprocessing
 from multiprocessing.managers import SyncManager
 import os
@@ -397,6 +398,17 @@ class NxsBackendBaseProcess(ABC):
                 cached_component_model_path = self.model_store_cache.get_model_path(
                     component_model.model_uuid
                 )
+
+                is_zip_file = zipfile.is_zipfile(cached_component_model_path)
+
+                # extract the zip file to model dir path
+                if is_zip_file:
+                    shutil.unpack_archive(
+                        cached_component_model_path,
+                        component_model_dir_path,
+                        format="zip",
+                    )
+
                 # copy cached model into new location
                 if component_model.framework == Framework.ONNX:
                     component_model_path = os.path.join(
@@ -407,9 +419,10 @@ class NxsBackendBaseProcess(ABC):
                         component_model_dir_path, f"model.so"
                     )
                 elif component_model.framework == Framework.BATCHED_TVM:
-                    component_model_path = os.path.join(
-                        component_model_dir_path, f"model.zip"
-                    )
+                    # component_model_path = os.path.join(
+                    #     component_model_dir_path, f"model.zip"
+                    # )
+                    component_model_path = component_model_dir_path
                 elif component_model.framework == Framework.TF_PB:
                     component_model_path = os.path.join(
                         component_model_dir_path, f"model.pb"
@@ -419,7 +432,9 @@ class NxsBackendBaseProcess(ABC):
                     component_model_path = os.path.join(
                         component_model_dir_path, f"model.onnx"
                     )
-                shutil.copy(cached_component_model_path, component_model_path)
+
+                if not is_zip_file:
+                    shutil.copy(cached_component_model_path, component_model_path)
 
                 # TODO: we should also cache these preprocess/postprocess/transform-ing
                 # print(
