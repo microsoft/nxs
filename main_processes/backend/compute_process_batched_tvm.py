@@ -61,13 +61,14 @@ class BackendComputeProcessBatchedTvm(BackendComputeProcess):
         # the model_path should be a zip file
         import shutil
 
-        base_dir_path = os.path.dirname(self.model_path)
+        # base_dir_path = os.path.dirname(self.model_path)
+        base_dir_path = self.model_path
         self.tvm_modules_dir = os.path.join(base_dir_path, "tvm_modules")
 
         if not os.path.exists(self.tvm_modules_dir):
             os.makedirs(self.tvm_modules_dir)
 
-        shutil.unpack_archive(self.model_path, self.tvm_modules_dir, format="zip")
+        # shutil.unpack_archive(self.model_path, self.tvm_modules_dir, format="zip")
 
         if not self.use_gpu:
             self.ctx = tvm.cpu()
