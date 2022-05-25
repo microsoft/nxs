@@ -782,9 +782,9 @@ async def _infer_single(
     if pipeline is None:
         raise Exception("invalid pipeline uuid")
 
-    num_inputs = len(pipeline.models[0].component_models[0].model_desc.inputs)
-    if num_inputs > 1:
-        raise Exception("This api only works with single input models.")
+    # num_inputs = len(pipeline.models[0].component_models[0].model_desc.inputs)
+    # if num_inputs > 1:
+    #     raise Exception("This api only works with single input models.")
 
     # num_shape_dims = len(
     #     pipeline.models[0].component_models[0].model_desc.inputs[0].shape
