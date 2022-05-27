@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from concurrent.futures.thread import ThreadPoolExecutor
 from nxs_libs.db import NxsDbFactory, NxsDbType
 from nxs_libs.storage import NxsStorageFactory, NxsStorageType
-from apps.vehicle_counting.app_types.app_request import InDbTrackingAppRequest, RequestStatus
+from apps.vehicle_counting.app_types.app_request import (
+    InDbTrackingAppRequest,
+    RequestStatus,
+)
 
 from nxs_types.infer import (
     NxsInferInput,
@@ -122,7 +125,7 @@ class VehicleTrackingApp:
                     obj_track.templates[-1],
                     frame,
                     obj_track.track[-1],
-                    self.nxs_api_key
+                    self.nxs_api_key,
                 )
 
                 obj_track.track.append(infer_res.detections[0].bbox)
@@ -166,9 +169,7 @@ class VehicleTrackingApp:
                 tracking_args.append((obj_id, frames))
 
             if len(tracking_args) > 0:
-                executor = ThreadPoolExecutor(
-                    max_workers=min(16, len(tracking_args))
-                )
+                executor = ThreadPoolExecutor(max_workers=min(16, len(tracking_args)))
                 results = []
                 for args in tracking_args:
                     f = executor.submit(process_frames, *args)
@@ -197,9 +198,7 @@ class VehicleTrackingApp:
                     ]
 
                     if not obj_track.is_counted:
-                        if self.is_passing_line(
-                            bboxes, self.lines[obj_track.roi_idx]
-                        ):
+                        if self.is_passing_line(bboxes, self.lines[obj_track.roi_idx]):
                             obj_track.is_counted = True
                             self.class_count_dicts[obj_track.roi_idx][
                                 obj_track.class_name
@@ -429,9 +428,7 @@ class VehicleTrackingApp:
         for obj_id in expired_ids:
             self.track_dict.pop(obj_id, None)
 
-    def process_detections(
-        self, frame: np.ndarray, dets: List[NxsInferDetectorResult]
-    ):
+    def process_detections(self, frame: np.ndarray, dets: List[NxsInferDetectorResult]):
         duplicate_obj_ids = []
 
         for det in dets:
@@ -514,10 +511,7 @@ class VehicleTrackingApp:
 
             # prev_det = track.dets[-1]
 
-            if (
-                not self.treat_all_classes_as_one
-                and det.class_name != track.class_name
-            ):
+            if not self.treat_all_classes_as_one and det.class_name != track.class_name:
                 continue
 
             iou = compute_iou(det.bbox, track.track[-1])
@@ -625,9 +619,7 @@ class VehicleTrackingApp:
         for line_idx, line in enumerate(self.lines):
             label = ""
             for class_name in self.class_count_dicts[line_idx]:
-                label += (
-                    str(self.class_count_dicts[line_idx][class_name]) + " "
-                )
+                label += str(self.class_count_dicts[line_idx][class_name]) + " "
             cv2.putText(
                 frame,
                 label,
@@ -641,9 +633,7 @@ class VehicleTrackingApp:
             frame = self.draw_line(frame, line)
         return frame
 
-    def draw_line(
-        self, frame, line: NxsLine, color=(0, 0, 255), thickness=1
-    ):
+    def draw_line(self, frame, line: NxsLine, color=(0, 0, 255), thickness=1):
         if not line:
             return frame
 
@@ -695,9 +685,7 @@ def main():
     parser.add_argument("--blobstore_container", type=str)
     parser.add_argument("--cosmosdb_conn_str", type=str)
     parser.add_argument("--cosmosdb_db_name", type=str)
-    parser.add_argument(
-        "--counting_report_interval_secs", type=int, default=900
-    )
+    parser.add_argument("--counting_report_interval_secs", type=int, default=900)
     parser.add_argument(
         "--debug", default=False, type=lambda x: (str(x).lower() == "true")
     )
@@ -710,7 +698,6 @@ def main():
     args.blobstore_container = os.environ["BLOBSTORE_CONTAINER"]
     args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
     args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
-    
 
     try:
         db_client = NxsDbFactory.create_db(
@@ -733,6 +720,8 @@ def main():
                 DB_TASKS_COLLECTION_NAME, {"video_uuid": args.video_uuid}
             )[0]
         )
+        if video_info.skip_frames is None:
+            video_info.skip_frames = 3
 
         INFER_URL = f"{args.nxs_url}/api/v2/tasks/tensors/infer"
         OBJECT_DETECTOR_UUID = args.object_detector_uuid
@@ -782,6 +771,7 @@ def main():
             tracking_classes=video_info.tracking_classes,
             visualize=False,
             collect_logs=args.debug,
+            skip_frame=video_info.skip_frames,
             blobstore_conn_str=args.blobstore_conn_str,
             blobstore_container_name=args.blobstore_container,
             cosmosdb_conn_str=args.cosmosdb_conn_str,

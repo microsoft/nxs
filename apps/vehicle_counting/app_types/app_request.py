@@ -2,11 +2,13 @@ from enum import Enum
 from typing import List, Optional
 from nxs_types import DataModel
 
+
 class TrackableClass(str, Enum):
     CAR = "car"
     MOTORCYCLE = "motorcycle"
     BUS = "bus"
     TRUCK = "truck"
+
 
 class RequestStatus(str, Enum):
     PENDING = "PENDING"
@@ -38,12 +40,12 @@ class TrackingRegion(DataModel):
 class TrackingAppRequest(DataModel):
     video_url: str
     regions: List[TrackingRegion]
-    skip_frames: Optional[int] = 2
+    skip_frames: Optional[int] = 3
     tracking_classes: Optional[List[TrackableClass]] = [
         TrackableClass.CAR,
-        #TrackableClass.MOTORCYCLE,
+        # TrackableClass.MOTORCYCLE,
         TrackableClass.BUS,
-        #TrackableClass.TRUCK,
+        # TrackableClass.TRUCK,
     ]
     count_interval_secs: Optional[int] = 900
     debug: Optional[bool] = False
