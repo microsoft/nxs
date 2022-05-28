@@ -340,6 +340,19 @@ resource "kubectl_manifest" "nxs_api_service" {
   ]
 }
 
+resource "kubectl_manifest" "nginx_hpa" {
+  wait = true
+  yaml_body = templatefile("${path.module}/yaml/nginx_hpa.yaml",
+    {
+      MAX_REPLICAS: var.nginx_max_replicas
+      MIN_REPLICAS: var.nginx_min_replicas
+    }
+  )
+  depends_on = [
+    helm_release.nginx_ingress
+  ]
+}
+
 resource "kubectl_manifest" "nxs_ing_service" {
   wait = true
   yaml_body = templatefile("${path.module}/yaml/nxs_ing.yaml",

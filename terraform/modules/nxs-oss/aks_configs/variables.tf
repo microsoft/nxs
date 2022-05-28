@@ -70,3 +70,13 @@ variable acr_password {
 variable redis_address {
     type = string
 }
+
+variable nginx_min_replicas {
+    type = number
+    default = 2
+}
+
+variable nginx_max_replicas {
+    type = number
+    default = 8
+}
