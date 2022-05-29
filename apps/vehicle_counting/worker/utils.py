@@ -1,3 +1,4 @@
+import time
 import requests
 import pickle
 import json
@@ -44,9 +45,12 @@ def run_detector(
     if api_key != "":
         headers["x-api-key"] = api_key
 
-    r = send_post_bytes_request(infer_url, payload, headers)
-
-    return NxsInferResult(**(json.loads(r.content)))
+    for _ in range(5):
+        try:
+            r = send_post_bytes_request(infer_url, payload, headers)
+            return NxsInferResult(**(json.loads(r.content)))
+        except:
+            time.sleep(0.1)
 
 
 def run_tracker(
@@ -92,8 +96,12 @@ def run_tracker(
     if api_key != "":
         headers["x-api-key"] = api_key
 
-    r = send_post_bytes_request(infer_url, payload, headers)
-    return NxsInferResult(**(json.loads(r.content)))
+    for _ in range(5):
+        try:
+            r = send_post_bytes_request(infer_url, payload, headers)
+            return NxsInferResult(**(json.loads(r.content)))
+        except:
+            time.sleep(0.1)
 
 
 def _example_wh_to_size(target_size, context_amount=0.5):
