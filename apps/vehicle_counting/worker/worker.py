@@ -2,8 +2,9 @@ import os
 import time
 import json
 import copy
-import numpy as np
 import cv2
+import threading
+import numpy as np
 from shapely.geometry import Point, Polygon
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
@@ -112,6 +113,13 @@ class VehicleTrackingApp:
             for class_count_dict in self.class_count_dicts:
                 class_count_dict[class_name] = 0
 
+        self.video_ended = False
+        self.video_frames = []
+        self.video_frame_timestamps = []
+
+        self.decode_thr = threading.Thread(target=self.decode_video_thread, args=())
+        self.decode_thr.start()
+
     def run_tracking(self):
         def process_frames(obj_id: int, frames: List[np.ndarray]):
             obj_track = self.track_dict[obj_id]
@@ -136,6 +144,12 @@ class VehicleTrackingApp:
         last_ts = -1
         last_frame_ts = -1
 
+        miss_deadline = 0
+        hit_deadline = 0
+
+        avg_lat = 0
+        count = 0
+
         while not self.STOP_FLAG:
             t0 = time.time()
             frames, frames_timestamps, is_end_of_video = self.get_batch(
@@ -147,6 +161,10 @@ class VehicleTrackingApp:
                 if last_frame_ts > 0:
                     self.report_counting(last_frame_ts)
                 break
+
+            if len(frames_timestamps) == 0:
+                time.sleep(0.1)
+                continue
 
             if frames_timestamps[-1] > 0:
                 last_frame_ts = frames_timestamps[-1]
@@ -252,7 +270,23 @@ class VehicleTrackingApp:
 
             lat = time.time() - t0
 
-            print(self.total_processed_frames, len(self.track_dict), lat)
+            avg_lat = (avg_lat * count + lat) / (count + 1)
+            count += 1
+
+            if lat > 1:
+                miss_deadline += 1
+            else:
+                hit_deadline += 1
+
+            miss_rate = float(miss_deadline) / (miss_deadline + hit_deadline)
+
+            # print(self.total_processed_frames, len(self.track_dict), lat)
+            print(f"Total processed frames: {self.total_processed_frames}")
+            print(f"Total objects this round: {len(self.track_dict)}")
+            print(f"Latency this round: {lat} secs")
+            print(f"Avg latency: {avg_lat} secs")
+            print(f"Miss rate: {miss_rate}")
+            print("")
 
     def report_counting(self, ts):
         cosmosdb_client = NxsDbFactory.create_db(
@@ -343,6 +377,38 @@ class VehicleTrackingApp:
         self.track_count += 1
         return self.track_count
 
+    def decode_video_thread(self):
+        print("Decode thread is started...")
+
+        frame_idx = 0
+        t0 = time.time()
+        snapshot0 = frame_idx
+        while True:
+            if time.time() - t0 > 900:
+                t0 = time.time()
+                snapshot0 = frame_idx
+
+            if len(self.video_frames) > 5 * self.NUM_FRAMES_PER_SEC:
+                fps = (frame_idx - snapshot0) / (time.time() - t0)
+                # print(f"buffer is full: {len(self.video_frames)} - Decode fps: {fps}")
+                time.sleep(1)
+                continue
+
+            _, img = self.cap.read()  # BGR
+            if isinstance(img, type(None)):
+                self.video_ended = True
+                break
+
+            if frame_idx % (self.skip_frame + 1) == 0:
+                self.video_frame_timestamps.append(self.cap.get(cv2.CAP_PROP_POS_MSEC))
+                self.video_frames.append(img)
+
+            frame_idx += 1
+            self.total_extracted_frames += 1
+
+        print("Decode thread is stopped...")
+
+    """
     def get_batch(self, batch_size):
         images = []
         timestamps = []
@@ -358,6 +424,28 @@ class VehicleTrackingApp:
                 break
 
             self.total_extracted_frames += 1
+
+        return images, timestamps, is_end_of_video
+    """
+
+    def get_batch(self, batch_size):
+        images = []
+        timestamps = []
+        is_end_of_video = False
+
+        batch_size = int(float(batch_size) / (1 + self.skip_frame))
+
+        if len(self.video_frames) >= batch_size:
+            for _ in range(batch_size):
+                timestamps.append(self.video_frame_timestamps.pop(0))
+                images.append(self.video_frames.pop(0))
+        elif len(self.video_frames) < batch_size and self.video_ended:
+            for _ in range(len(self.video_frames)):
+                timestamps.append(self.video_frame_timestamps.pop(0))
+                images.append(self.video_frames.pop(0))
+                is_end_of_video = True
+        else:
+            is_end_of_video = self.video_ended
 
         return images, timestamps, is_end_of_video
 
