@@ -772,8 +772,7 @@ def main():
     parser.add_argument("--blobstore_conn_str", type=str)
     parser.add_argument("--blobstore_container", type=str)
     parser.add_argument("--cosmosdb_conn_str", type=str)
-    parser.add_argument("--cosmosdb_db_name", type=str)
-    parser.add_argument("--counting_report_interval_secs", type=int, default=900)
+    parser.add_argument("--cosmosdb_db_name", type=str)    
     parser.add_argument(
         "--debug", default=False, type=lambda x: (str(x).lower() == "true")
     )
@@ -810,6 +809,8 @@ def main():
         )
         if video_info.skip_frames is None:
             video_info.skip_frames = 3
+        if video_info.count_interval_secs is None:
+            video_info.count_interval_secs = 900 # 15 mins
 
         INFER_URL = f"{args.nxs_url}/api/v2/tasks/tensors/infer"
         OBJECT_DETECTOR_UUID = args.object_detector_uuid
@@ -864,7 +865,7 @@ def main():
             blobstore_container_name=args.blobstore_container,
             cosmosdb_conn_str=args.cosmosdb_conn_str,
             cosmosdb_db_name=args.cosmosdb_db_name,
-            counting_report_interval_secs=args.counting_report_interval_secs,
+            counting_report_interval_secs=video_info.count_interval_secs,
         )
         app.run_tracking()
 
