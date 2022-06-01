@@ -443,7 +443,7 @@ class VehicleTrackingApp:
             for _ in range(len(self.video_frames)):
                 timestamps.append(self.video_frame_timestamps.pop(0))
                 images.append(self.video_frames.pop(0))
-                is_end_of_video = True
+            is_end_of_video = True
         else:
             is_end_of_video = self.video_ended
 
