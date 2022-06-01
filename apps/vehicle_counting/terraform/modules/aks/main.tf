@@ -32,6 +32,14 @@ resource "azurerm_kubernetes_cluster" "nxsapp_aks" {
     secret_rotation_enabled = true
     secret_rotation_interval = "2m"
   }
+
+  network_profile {
+    network_plugin = "azure"
+    outbound_type = "managedNATGateway"
+    nat_gateway_profile {
+      managed_outbound_ip_count = 1
+    }
+  }
 }
 
 # create public ip for this aks
