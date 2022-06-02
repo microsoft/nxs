@@ -1,0 +1,13 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:  
+  name: nginx-ingress-ingress-nginx-controller-hpa
+  namespace: nxs
+spec:
+  maxReplicas: ${MAX_REPLICAS}
+  minReplicas: ${MIN_REPLICAS}
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-ingress-ingress-nginx-controller
+  targetCPUUtilizationPercentage: 75

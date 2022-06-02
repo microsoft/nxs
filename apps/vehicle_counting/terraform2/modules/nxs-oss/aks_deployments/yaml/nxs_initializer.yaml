@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: nxs
+  name: nxs-initializer
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      containers:
+      - name: nxs-job
+        image: ${IMAGE}:${IMAGE_TAG}
+        command: ["/bin/bash", "/app/run_initializer.sh"]
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 250Mi
+        volumeMounts:
+        - name: kv-secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        env:
+        - name: BLOBSTORE_CONN_STR
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: BLOBSTORE_CONNECTION_STR
+        - name: BLOBSTORE_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: BLOBSTORE_CONTAINER_NAME
+        - name: NXS_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: NXS_API_URL
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxskv
+              key: API_KEY
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Never
+      volumes:
+      - name: kv-secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "nxs-kv-sync"

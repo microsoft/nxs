@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-external-config
+  namespace: ot-operators
+data:
+  redis-external.conf: |
+    requirepass ${REDIS_PASSWORD}
