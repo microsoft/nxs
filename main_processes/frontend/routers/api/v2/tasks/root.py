@@ -587,6 +587,9 @@ if args.enable_scaling:
 
         found_gpu_backend_deployment = False
         for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
             if item.metadata.labels["name"] == "nxs-backend-gpu":
                 item.spec.replicas = num_backends
 
@@ -656,6 +659,9 @@ if args.enable_scaling:
             )
 
         for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
             if item.metadata.labels["name"] == deployment_name:
                 num_replicas = item.spec.replicas
 
