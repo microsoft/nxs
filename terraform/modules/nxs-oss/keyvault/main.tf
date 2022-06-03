@@ -58,3 +58,11 @@ output kv_uri {
 output kv_name {
     value = azurerm_key_vault.nxs_kv.name
 }
+
+output keyvault_info {
+  value = {
+    kv_id = azurerm_key_vault.nxs_kv.id
+    kv_uri = azurerm_key_vault.nxs_kv.vault_uri
+    kv_name = azurerm_key_vault.nxs_kv.name
+  }
+}

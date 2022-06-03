@@ -3,10 +3,11 @@ kind: Service
 metadata:
   namespace: nxs
   name: nxs-api-servers-svc
-  annotations:
-   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  #annotations:
+  # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 spec:
-  type: LoadBalancer
+  # type: LoadBalancer
+  clusterIP: None
   ports:
     - name: http
       port: 80

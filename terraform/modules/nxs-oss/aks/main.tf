@@ -28,16 +28,17 @@ resource "azurerm_kubernetes_cluster" "nxs_aks" {
     type = "SystemAssigned"
   }
 
-  #addon_profile {
-  #  azure_keyvault_secrets_provider {
-  #    enabled = true
-  #    secret_rotation_enabled = true
-  #  }
-  #}
-
   key_vault_secrets_provider {
     secret_rotation_enabled = true
     secret_rotation_interval = "2m"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+    outbound_type = "managedNATGateway"
+    nat_gateway_profile {
+      managed_outbound_ip_count = 1
+    }
   }
 }
 
@@ -75,78 +76,24 @@ resource "azurerm_public_ip" "nxs_public_ip" {
   domain_name_label = "nxs-${var.base.deployment_name}-${random_password.nxs_dns_suffix.result}"
 }
 
-output aks_principal_id {
-  value = azurerm_kubernetes_cluster.nxs_aks.identity[0].principal_id
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_kubelet_object_id {
-  value = azurerm_kubernetes_cluster.nxs_aks.kubelet_identity[0].object_id
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_host {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.host
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_username {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.username
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_password {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.password
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_client_certificate {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.client_certificate
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_client_client_key {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.client_key
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_client_cluster_ca_certificate {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.cluster_ca_certificate
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_tenant_id {
-  value = azurerm_kubernetes_cluster.nxs_aks.identity[0].tenant_id
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_kv_secrets_provider_client_id {
-  #value = azurerm_kubernetes_cluster.nxs_aks.addon_profile[0].azure_keyvault_secrets_provider[0].secret_identity[0].client_id
-  value = azurerm_kubernetes_cluster.nxs_aks.key_vault_secrets_provider[0].secret_identity[0].client_id
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_kv_secrets_provider_object_id {
-  #value = azurerm_kubernetes_cluster.nxs_aks.addon_profile[0].azure_keyvault_secrets_provider[0].secret_identity[0].object_id
-  value = azurerm_kubernetes_cluster.nxs_aks.key_vault_secrets_provider[0].secret_identity[0].object_id
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_public_ip {
-  value = azurerm_public_ip.nxs_public_ip.ip_address
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_domain_name_label {
-  value = azurerm_public_ip.nxs_public_ip.domain_name_label
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_domain_name_fqdn {
-  value = azurerm_public_ip.nxs_public_ip.fqdn
-  depends_on = [azurerm_kubernetes_cluster_node_pool.nxs_aks_gpupool1, azurerm_public_ip.nxs_public_ip]
-}
-
-output aks_kube_config {
-  value = azurerm_kubernetes_cluster.nxs_aks.kube_config_raw
+output aks_info {
+  value = {
+    aks_id = azurerm_kubernetes_cluster.nxs_aks.id
+    aks_node_resource_group = azurerm_kubernetes_cluster.nxs_aks.node_resource_group
+    aks_principal_id = azurerm_kubernetes_cluster.nxs_aks.identity[0].principal_id
+    aks_kubelet_object_id = azurerm_kubernetes_cluster.nxs_aks.kubelet_identity[0].object_id
+    aks_host = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.host
+    aks_username = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.username
+    aks_password = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.password
+    aks_client_certificate = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.client_certificate
+    aks_client_client_key = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.client_key
+    aks_client_cluster_ca_certificate = azurerm_kubernetes_cluster.nxs_aks.kube_config.0.cluster_ca_certificate
+    aks_tenant_id = azurerm_kubernetes_cluster.nxs_aks.identity[0].tenant_id
+    aks_kv_secrets_provider_client_id = azurerm_kubernetes_cluster.nxs_aks.key_vault_secrets_provider[0].secret_identity[0].client_id
+    aks_kv_secrets_provider_object_id = azurerm_kubernetes_cluster.nxs_aks.key_vault_secrets_provider[0].secret_identity[0].object_id
+    aks_public_ip = azurerm_public_ip.nxs_public_ip.ip_address
+    aks_domain_name_label = azurerm_public_ip.nxs_public_ip.domain_name_label
+    aks_domain_name_fqdn = azurerm_public_ip.nxs_public_ip.fqdn
+    aks_kube_config = azurerm_kubernetes_cluster.nxs_aks.kube_config_raw
+  }
 }

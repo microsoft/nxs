@@ -8,21 +8,21 @@ terraform {
 }
 
 provider "kubernetes" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
 }
 
 provider "kubectl" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
   load_config_file       = false
 }
 
@@ -150,22 +150,12 @@ resource "kubectl_manifest" "redis_server" {
   depends_on = [kubectl_manifest.redis_conf]  
 }
 
-output redis_address {
-  value = var.create_module ? "redis-standalone.ot-operators" : ""
-  depends_on = [kubectl_manifest.redis_server]
-}
-
-output redis_port {
-  value = 6379
-  depends_on = [kubectl_manifest.redis_server]
-}
-
-output redis_password {
-  value = var.create_module ? random_password.redis_password.result : ""
-  depends_on = [kubectl_manifest.redis_server]
-}
-
-output redis_use_ssl {
-  value = "false"
+output redis_info {
+  value = {
+    redis_address = var.create_module ? "redis-standalone.ot-operators" : ""
+    redis_port = 6379
+    redis_password = var.create_module ? random_password.redis_password.result : ""
+    redis_use_ssl = "false"
+  }
   depends_on = [kubectl_manifest.redis_server]
 }

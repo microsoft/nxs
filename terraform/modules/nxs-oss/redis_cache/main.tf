@@ -32,18 +32,11 @@ resource "azurerm_redis_cache" "nxs_redis" {
   }
 }
 
-output redis_address {
-  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].hostname : ""
-}
-
-output redis_port {
-  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].ssl_port : 6380
-}
-
-output redis_password {
-  value = var.create_module ? azurerm_redis_cache.nxs_redis[0].primary_access_key : ""
-}
-
-output redis_use_ssl {
-  value = "true"
+output redis_info {
+  value = {
+    redis_address = var.create_module ? azurerm_redis_cache.nxs_redis[0].hostname : ""
+    redis_port = var.create_module ? azurerm_redis_cache.nxs_redis[0].ssl_port : 6380
+    redis_password = var.create_module ? azurerm_redis_cache.nxs_redis[0].primary_access_key : ""
+    redis_use_ssl = "true"
+  }
 }

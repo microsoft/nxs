@@ -18,7 +18,7 @@ resource "azurerm_resource_group" "rg" {
 # assign the admin group as Owner of the resource group
 resource "azurerm_role_assignment" "rg_to_group" {
   scope                = azurerm_resource_group.rg.id
-  role_definition_name = "Contributor"
+  role_definition_name = "Owner"
   principal_id         = var.admin_group_object_id
 
   depends_on = [
@@ -26,6 +26,8 @@ resource "azurerm_role_assignment" "rg_to_group" {
   ]
 }
 
-output "name" {
-  value = azurerm_resource_group.rg.name
+output rg_info {
+  value = {
+    name = azurerm_resource_group.rg.name
+  }
 }
