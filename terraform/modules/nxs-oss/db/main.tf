@@ -112,18 +112,11 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_pipline_collection" {
   }
 }
 
-output nxs_mongodb_key {
-  value = azurerm_cosmosdb_account.nxs_mongodb.primary_key
-}
-
-output nxs_mongodb_endpoint {
-  value = azurerm_cosmosdb_account.nxs_mongodb.endpoint
-}
-
-output nxs_mongodb_conn_str {
-  value = azurerm_cosmosdb_account.nxs_mongodb.connection_strings[0]
-}
-
-output nxs_mongodb_maindb_name {
-  value = azurerm_cosmosdb_mongo_database.nxs_mongodb_maindb.name
+output db_info {
+  value = {
+    nxs_mongodb_key = azurerm_cosmosdb_account.nxs_mongodb.primary_key
+    nxs_mongodb_endpoint = azurerm_cosmosdb_account.nxs_mongodb.endpoint
+    nxs_mongodb_conn_str = azurerm_cosmosdb_account.nxs_mongodb.connection_strings[0]
+    nxs_mongodb_maindb_name = azurerm_cosmosdb_mongo_database.nxs_mongodb_maindb.name
+  }
 }

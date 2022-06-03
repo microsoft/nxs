@@ -29,10 +29,9 @@ resource "azurerm_storage_container" "nxs" {
   container_access_type = "private"
 }
 
-output nxs_storage_connection_string {
-    value = azurerm_storage_account.main.primary_blob_connection_string
-}
-
-output nxs_storage_container_name {
-    value = azurerm_storage_container.nxs.name
+output storage_info {
+  value = {
+    nxs_storage_connection_string = azurerm_storage_account.main.primary_blob_connection_string
+    nxs_storage_container_name = azurerm_storage_container.nxs.name
+  }
 }

@@ -8,32 +8,32 @@ terraform {
 }
 
 provider "kubernetes" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
 }
 
 provider "helm" {
   kubernetes {
-    host                   = var.aks_host
-    username               = var.aks_username
-    password               = var.aks_password
-    client_certificate     = base64decode(var.aks_client_certificate)
-    client_key             = base64decode(var.aks_client_client_key)
-    cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+    host                   = var.aks_info.aks_host
+    username               = var.aks_info.aks_username
+    password               = var.aks_info.aks_password
+    client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+    client_key             = base64decode(var.aks_info.aks_client_client_key)
+    cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
   }
 }
 
 provider "kubectl" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
   load_config_file       = false
 }
 
@@ -52,7 +52,7 @@ resource "kubectl_manifest" "nxs_scheduler" {
   timeouts {
     create = "30m"
   }
-  depends_on = [var.aks_configs_completed]  
+  depends_on = [var.aks_configs_info]  
 }
 
 resource "kubectl_manifest" "nxs_workload_manager" {
@@ -143,7 +143,8 @@ resource "kubectl_manifest" "nxs_api_servers_hpa" {
   wait_for_rollout = true
   yaml_body = templatefile("${path.module}/yaml/nxs_api_hpa.yaml",
     {
-      MAX_REPLICAS: var.nxs_api_max_num_replicas      
+      MAX_REPLICAS: var.nxs_api_max_num_replicas
+      MIN_REPLICAS: var.nxs_api_min_num_replicas
     }
   )
   timeouts {

@@ -3,32 +3,14 @@ variable base {
     description = "Base configuration"
 }
 
-variable aks_host {
-    type = string
+variable aks_info {
+    type = any
+    description = "aks output"
 }
 
-variable aks_username {
-    type = string
-}
-
-variable aks_password {
-    type = string
-}
-
-variable aks_client_certificate {
-    type = string
-}
-
-variable aks_client_client_key {
-    type = string
-}
-
-variable aks_client_cluster_ca_certificate {
-    type = string
-}
-
-variable aks_configs_completed {
-    type = bool
+variable aks_configs_info {
+    type = any
+    description = "aks_configs output"
 }
 
 variable nxs_api_image {

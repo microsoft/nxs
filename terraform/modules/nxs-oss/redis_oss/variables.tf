@@ -3,28 +3,9 @@ variable base {
     description = "Base configuration"
 }
 
-variable aks_host {
-    type = string
-}
-
-variable aks_username {
-    type = string
-}
-
-variable aks_password {
-    type = string
-}
-
-variable aks_client_certificate {
-    type = string
-}
-
-variable aks_client_client_key {
-    type = string
-}
-
-variable aks_client_cluster_ca_certificate {
-    type = string
+variable aks_info {
+    type = any
+    description = "aks output"
 }
 
 variable redis_cpu_per_node {

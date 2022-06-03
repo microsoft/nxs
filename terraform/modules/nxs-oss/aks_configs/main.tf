@@ -8,32 +8,32 @@ terraform {
 }
 
 provider "kubernetes" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
 }
 
 provider "helm" {
   kubernetes {
-    host                   = var.aks_host
-    username               = var.aks_username
-    password               = var.aks_password
-    client_certificate     = base64decode(var.aks_client_certificate)
-    client_key             = base64decode(var.aks_client_client_key)
-    cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+    host                   = var.aks_info.aks_host
+    username               = var.aks_info.aks_username
+    password               = var.aks_info.aks_password
+    client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+    client_key             = base64decode(var.aks_info.aks_client_client_key)
+    cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
   }
 }
 
 provider "kubectl" {
-  host                   = var.aks_host
-  username               = var.aks_username
-  password               = var.aks_password
-  client_certificate     = base64decode(var.aks_client_certificate)
-  client_key             = base64decode(var.aks_client_client_key)
-  cluster_ca_certificate = base64decode(var.aks_client_cluster_ca_certificate)
+  host                   = var.aks_info.aks_host
+  username               = var.aks_info.aks_username
+  password               = var.aks_info.aks_password
+  client_certificate     = base64decode(var.aks_info.aks_client_certificate)
+  client_key             = base64decode(var.aks_info.aks_client_client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.aks_client_cluster_ca_certificate)
   load_config_file       = false
 }
 
@@ -60,14 +60,6 @@ resource "kubectl_manifest" "nvidia_plugin" {
   ]
 }
 
-# install SecretStoreCSIDriver to map secrets from kv
-#resource "helm_release" "SecretStoreCSIDriver" {
-#  name       = "csi"
-#  repository = "https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts"
-#  chart      = "csi-secrets-store-provider-azure"
-#  #version    = "0.0.22"
-#}
-
 resource "kubectl_manifest" "secrets_provider" {
   wait = true
   yaml_body = <<YAML
@@ -81,8 +73,8 @@ spec:
   parameters:
     usePodIdentity: "false"         
     useVMManagedIdentity: "true"   
-    userAssignedIdentityID: ${var.aks_kv_secrets_provider_client_id}
-    keyvaultName: ${var.kv_name}
+    userAssignedIdentityID: ${var.aks_info.aks_kv_secrets_provider_client_id}
+    keyvaultName: ${var.keyvault_info.kv_name}
     cloudName: ""          
     cloudEnvFileName: ""   
     objects:  |
@@ -132,7 +124,7 @@ spec:
           objectType: secret
           objectVersion: ""
     resourceGroup: "" #REQUIRED
-    tenantId: ${var.aks_tenant_id}
+    tenantId: ${var.aks_info.aks_tenant_id}
   secretObjects:
     - data:
       - key: API_KEY
@@ -159,27 +151,45 @@ spec:
       type: Opaque
   YAML
   depends_on = [
-    kubernetes_namespace.nxs_ns, var.redis_address
+    kubernetes_namespace.nxs_ns, var.redis_info
   ]
 }
 
 # assign public ip to aks ingress
-resource "kubernetes_namespace" "ingress_basic" {
-  metadata {
-    name = "ingress-basic"
-    labels = {
-      "cert-manager.io/disable-validation" = true
-    }
-  }
-}
+#resource "kubernetes_namespace" "ingress_basic" {
+#  metadata {
+#    name = "ingress-basic"
+#    labels = {
+#      "cert-manager.io/disable-validation" = true
+#    }
+#  }
+#}
 
 resource "helm_release" "nginx_ingress" {
   name       = "nginx-ingress"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
-  namespace  = "ingress-basic"
+  #namespace  = "ingress-basic"
+  namespace  = "nxs"
   version    = "4.0.13"
+  wait       = true
 
+  set {
+    name = "controller.ingressClassResource.name"
+    value = "nxs"
+  }
+  set {
+    name = "controller.scope.enabled"
+    value = true
+  }
+  set {
+    name = "controller.scope.namespace"
+    value = "nxs"
+  }
+  set {
+    name = "controller.ingressClass"
+    value = "nxs"
+  }
   set {
     name  = "controller.replicaCount"
     value = 2
@@ -204,7 +214,6 @@ resource "helm_release" "nginx_ingress" {
     name  = "controller.image.digest"
     value = ""
   }
-
   set {
     name  = "controller.admissionWebhooks.patch.nodeSelector\\.kubernetes.io/os"
     value = "linux"
@@ -248,14 +257,27 @@ resource "helm_release" "nginx_ingress" {
   }
   set {
     name  = "controller.service.loadBalancerIP"
-    value = "${var.aks_public_ip_address}"
+    value = "${var.aks_info.aks_public_ip}"
   }
   set {
     name  = "controller.service.annotations\\.service.beta.kubernetes.io/azure-dns-label-name"
-    value = "${var.aks_domain_name_label}"
+    value = "${var.aks_info.aks_domain_name_label}"
   }  
   depends_on = [
-    kubernetes_namespace.ingress_basic
+    kubernetes_namespace.nxs_ns
+  ]
+}
+
+resource "kubectl_manifest" "nginx_hpa" {
+  wait = true
+  yaml_body = templatefile("${path.module}/yaml/nginx_hpa.yaml",
+    {
+      MAX_REPLICAS: var.nginx_max_replicas
+      MIN_REPLICAS: var.nginx_min_replicas
+    }
+  )
+  depends_on = [
+    helm_release.nginx_ingress
   ]
 }
 
@@ -264,7 +286,8 @@ resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
-  namespace = "ingress-basic"
+  #namespace = "ingress-basic"
+  #namespace  = "nxs"
   version    = "v1.5.4"
 
   set {
@@ -308,9 +331,10 @@ resource "kubectl_manifest" "ca_issuer" {
   wait = true
   yaml_body = <<YAML
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: letsencrypt-prod
+  namespace: nxs
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
@@ -320,7 +344,7 @@ spec:
     solvers:
     - http01:
         ingress:
-          class: nginx
+          class: nxs
           podTemplate:
             spec:
               nodeSelector:
@@ -340,43 +364,17 @@ resource "kubectl_manifest" "nxs_api_service" {
   ]
 }
 
-resource "kubectl_manifest" "nginx_hpa" {
-  wait = true
-  yaml_body = templatefile("${path.module}/yaml/nginx_hpa.yaml",
-    {
-      MAX_REPLICAS: var.nginx_max_replicas
-      MIN_REPLICAS: var.nginx_min_replicas
-    }
-  )
-  depends_on = [
-    helm_release.nginx_ingress
-  ]
-}
-
 resource "kubectl_manifest" "nxs_ing_service" {
   wait = true
   yaml_body = templatefile("${path.module}/yaml/nxs_ing.yaml",
     {
-      DNS_FQDN: var.aks_domain_name_fqdn
+      DNS_FQDN: var.aks_info.aks_domain_name_fqdn
     }
   )
   depends_on = [
     kubernetes_namespace.nxs_ns, kubectl_manifest.ca_issuer
   ]
 }
-
-# create a reference to w4devops ACR
-#provider "azurerm" {
-#  alias           = "watchfor"
-#  subscription_id = "f4b78c03-374e-4687-84b7-83d773ea3e2b"
-#  features {}
-#}
-
-#data "azurerm_container_registry" "watchfor_acr" {
-#  provider = azurerm.watchfor
-#  name = "w4devops"
-#  resource_group_name = "w4devops"
-#}
 
 resource "kubernetes_secret" "regcred" {  
   metadata {
@@ -387,9 +385,6 @@ resource "kubernetes_secret" "regcred" {
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {
-        #"${data.azurerm_container_registry.watchfor_acr.login_server}" = {
-        #  auth = "${base64encode("${data.azurerm_container_registry.watchfor_acr.admin_username}:${data.azurerm_container_registry.watchfor_acr.admin_password}")}"
-        #}
         "${var.acr_login_server}" = {
           auth = "${base64encode("${var.acr_user_name}:${var.acr_password}")}"
         }
@@ -401,7 +396,9 @@ resource "kubernetes_secret" "regcred" {
   depends_on = [kubernetes_namespace.nxs_ns]
 }
 
-output aks_configs_completed {
-  value = true
-  depends_on = [kubernetes_secret.regcred, kubectl_manifest.secrets_provider]
+output aks_configs_info {
+  value = {
+    aks_configs_completed = true
+  }
+  depends_on = [kubernetes_secret.regcred, kubectl_manifest.secrets_provider, kubectl_manifest.nxs_ing_service]
 }
