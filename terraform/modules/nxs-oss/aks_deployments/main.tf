@@ -172,3 +172,10 @@ resource "kubectl_manifest" "nxs_initializer" {
     kubectl_manifest.nxs_api_servers
   ]
 }
+
+output aks_deployments_info {
+  value = {
+    aks_deployments_completed = true
+  }
+  depends_on = [kubectl_manifest.nxs_initializer, kubectl_manifest.nxs_api_servers_hpa]
+}
