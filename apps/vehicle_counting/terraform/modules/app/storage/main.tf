@@ -50,7 +50,7 @@ resource "azurerm_storage_management_policy" "delete_policy" {
   }
 }
 
-output storage_base {
+output storage_info {
   value = {
     connection_string = azurerm_storage_account.main.primary_blob_connection_string
     container_name = azurerm_storage_container.nxsapp.name

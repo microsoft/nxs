@@ -8,32 +8,32 @@ terraform {
 }
 
 provider "kubernetes" {
-  host                   = var.aks_base.host
-  username               = var.aks_base.username
-  password               = var.aks_base.password
-  client_certificate     = base64decode(var.aks_base.client_certificate)
-  client_key             = base64decode(var.aks_base.client_key)
-  cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
+  host                   = var.aks_info.host
+  username               = var.aks_info.username
+  password               = var.aks_info.password
+  client_certificate     = base64decode(var.aks_info.client_certificate)
+  client_key             = base64decode(var.aks_info.client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.cluster_ca_certificate)
 }
 
 provider "helm" {
   kubernetes {
-    host                   = var.aks_base.host
-    username               = var.aks_base.username
-    password               = var.aks_base.password
-    client_certificate     = base64decode(var.aks_base.client_certificate)
-    client_key             = base64decode(var.aks_base.client_key)
-    cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
+    host                   = var.aks_info.host
+    username               = var.aks_info.username
+    password               = var.aks_info.password
+    client_certificate     = base64decode(var.aks_info.client_certificate)
+    client_key             = base64decode(var.aks_info.client_key)
+    cluster_ca_certificate = base64decode(var.aks_info.cluster_ca_certificate)
   }
 }
 
 provider "kubectl" {
-  host                   = var.aks_base.host
-  username               = var.aks_base.username
-  password               = var.aks_base.password
-  client_certificate     = base64decode(var.aks_base.client_certificate)
-  client_key             = base64decode(var.aks_base.client_key)
-  cluster_ca_certificate = base64decode(var.aks_base.cluster_ca_certificate)
+  host                   = var.aks_info.host
+  username               = var.aks_info.username
+  password               = var.aks_info.password
+  client_certificate     = base64decode(var.aks_info.client_certificate)
+  client_key             = base64decode(var.aks_info.client_key)
+  cluster_ca_certificate = base64decode(var.aks_info.cluster_ca_certificate)
   load_config_file       = false
 }
 
@@ -44,7 +44,7 @@ resource "kubernetes_namespace" "app_ns" {
   }
 }
 
-resource "kubectl_manifest" "secrets_provider" {
+resource "kubectl_manifest" "nxsapp_secrets_provider" {
   wait = true
   yaml_body = <<YAML
 apiVersion: secrets-store.csi.x-k8s.io/v1
@@ -57,8 +57,8 @@ spec:
   parameters:
     usePodIdentity: "false"         
     useVMManagedIdentity: "true"   
-    userAssignedIdentityID: ${var.aks_base.secrets_provider_client_id}
-    keyvaultName: ${var.kv_base.kv_name}
+    userAssignedIdentityID: ${var.aks_info.secrets_provider_client_id}
+    keyvaultName: ${var.keyvault_info.kv_name}
     cloudName: ""          
     cloudEnvFileName: ""   
     objects:  |
@@ -116,7 +116,7 @@ spec:
           objectType: secret
           objectVersion: ""
     resourceGroup: "" #REQUIRED
-    tenantId: ${var.aks_base.tenant_id}
+    tenantId: ${var.aks_info.tenant_id}
   secretObjects:
     - data:
       - key: API_KEY
@@ -150,22 +150,30 @@ spec:
 }
 
 # assign public ip to aks ingress
-resource "kubernetes_namespace" "ingress_basic" {
-  metadata {
-    name = "ingress-basic"
-    labels = {
-      "cert-manager.io/disable-validation" = true
-    }
-  }
-}
 
-resource "helm_release" "nginx_ingress" {
-  name       = "nginx-ingress"
+resource "helm_release" "nxsapp_nginx_ingress" {
+  name       = "app-nginx-ingress"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
-  namespace  = "ingress-basic"
+  namespace  = "${var.app_namespace}"
   version    = "4.0.13"
 
+  set {
+    name = "controller.ingressClassResource.name"
+    value = "nxsapp"
+  }
+  set {
+    name = "controller.scope.enabled"
+    value = true
+  }
+  set {
+    name = "controller.scope.namespace"
+    value = "${var.app_namespace}"
+  }
+  set {
+    name = "controller.ingressClass"
+    value = "nxsapp"
+  }
   set {
     name  = "controller.replicaCount"
     value = 2
@@ -234,86 +242,43 @@ resource "helm_release" "nginx_ingress" {
   }
   set {
     name  = "controller.service.loadBalancerIP"
-    value = "${var.aks_base.public_ip}"
+    value = "${var.aks_info.public_ip}"
   }
   set {
     name  = "controller.service.annotations\\.service.beta.kubernetes.io/azure-dns-label-name"
-    value = "${var.aks_base.domain_name_label}"
+    value = "${var.aks_info.domain_name_label}"
   }  
   depends_on = [
-    kubernetes_namespace.ingress_basic
+    kubernetes_namespace.app_ns
   ]
 }
 
-# Install cert-manager
-resource "helm_release" "cert_manager" {
-  name       = "cert-manager"
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
-  namespace = "ingress-basic"
-  version    = "v1.5.4"
 
-  set {
-    name  = "installCRDs"
-    value = true
-  }
-  set {
-    name  = "controller.nodeSelector\\.beta.kubernetes.io/os"
-    value = "linux"
-  }
-  set {
-    name  = "image.repository"
-    value = "quay.io/jetstack/cert-manager-controller"
-  }
-  set {
-    name  = "image.tag"
-    value = "v1.5.4"
-  }
-  set {
-    name  = "webhook.image.repository"
-    value = "quay.io/jetstack/cert-manager-webhook"
-  }
-  set {
-    name  = "webhook.image.tag"
-    value = "v1.5.4"
-  }
-  set {
-    name  = "cainjector.image.repository"
-    value = "quay.io/jetstack/cert-manager-cainjector"
-  }
-  set {
-    name  = "cainjector.image.tag"
-    value = "v1.5.4"
-  }
-  depends_on = [
-    helm_release.nginx_ingress
-  ]
-}
-
-resource "kubectl_manifest" "ca_issuer" {
+resource "kubectl_manifest" "nxsapp_ca_issuer" {
   wait = true
   yaml_body = <<YAML
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
-  name: letsencrypt-prod
+  namespace: "${var.app_namespace}"
+  name: nxsapp-letsencrypt-prod
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
     email: "${var.base.ssl_cert_owner_email}"
     privateKeySecretRef:
-      name: letsencrypt-prod
+      name: nxsapp-letsencrypt-prod
     solvers:
     - http01:
         ingress:
-          class: nginx
+          class: nxsapp
           podTemplate:
             spec:
               nodeSelector:
                 "kubernetes.io/os": linux
   YAML
   depends_on = [
-    helm_release.cert_manager
+    helm_release.nxsapp_nginx_ingress, var.nxs_aks_configs_info
   ]
 }
 
@@ -326,7 +291,7 @@ resource "kubectl_manifest" "nxsapp_api_service" {
     }
   )
   depends_on = [
-    kubernetes_namespace.app_ns, kubectl_manifest.ca_issuer
+    kubernetes_namespace.app_ns
   ]
 }
 
@@ -335,15 +300,15 @@ resource "kubectl_manifest" "nxsapp_ing_service" {
   yaml_body = templatefile("${path.module}/yaml/nxsapp_ing.yaml",
     {
       APP_NS: "${var.app_namespace}"
-      DNS_FQDN: var.aks_base.domain_name_fqdn
+      DNS_FQDN: var.aks_info.domain_name_fqdn
     }
   )
   depends_on = [
-    kubernetes_namespace.app_ns
+    kubectl_manifest.nxsapp_ca_issuer
   ]
 }
 
-resource "kubernetes_secret" "regcred" {  
+resource "kubernetes_secret" "nxsapp_regcred" {  
   metadata {
     name = "regcred"
     namespace = "${var.app_namespace}"
@@ -363,7 +328,9 @@ resource "kubernetes_secret" "regcred" {
   depends_on = [kubernetes_namespace.app_ns]
 }
 
-output aks_configs_completed {
-  value = true
-  depends_on = [kubernetes_secret.regcred, kubectl_manifest.secrets_provider]
+output aks_configs_info {
+  value = {
+    aks_configs_completed = true
+  }
+  depends_on = [kubernetes_secret.nxsapp_regcred, kubectl_manifest.nxsapp_secrets_provider, kubectl_manifest.nxsapp_ing_service]
 }

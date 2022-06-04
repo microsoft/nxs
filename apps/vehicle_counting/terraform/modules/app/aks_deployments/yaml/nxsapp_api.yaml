@@ -52,10 +52,7 @@ spec:
               name: nxsappkv
               key: API_KEY
         - name: WORKER_CONTAINER
-          valueFrom:
-            secretKeyRef:
-              name: nxsappkv
-              key: APP_WORKER_CONTAINER
+          value: ${WORKER_CONTAINER}
         - name: COSMOSDB_URL
           valueFrom:
             secretKeyRef:

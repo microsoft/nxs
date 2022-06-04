@@ -151,7 +151,7 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_tasks_collection" {
   }
 }
 
-output db_base {
+output db_info {
   value = {
     db_name = azurerm_cosmosdb_mongo_database.nxsapp_mongodb_maindb.name
     db_key = azurerm_cosmosdb_account.nxsapp_mongodb.primary_key

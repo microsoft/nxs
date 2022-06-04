@@ -4,15 +4,17 @@ metadata:
   namespace: ${APP_NS}
   name: nxsapp-api-ing
   annotations:
-    kubernetes.io/ingress.class: nginx    
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    #kubernetes.io/ingress.class: nginx    
+    #cert-manager.io/cluster-issuer: nxsapp-letsencrypt-prod
+    cert-manager.io/issuer: nxsapp-letsencrypt-prod
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-body-size: "1000M"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1000M"    
 spec:
+  ingressClassName: nxsapp
   tls:
   - hosts:
     - ${DNS_FQDN}
