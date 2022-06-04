@@ -47,19 +47,7 @@ resource "azurerm_key_vault" "nxsapp_kv" {
   }
 }
 
-#output kv_id {
-#    value = azurerm_key_vault.nxsapp_kv.id
-#}
-
-#output kv_uri {
-#    value = azurerm_key_vault.nxsapp_kv.vault_uri
-#}
-
-#output kv_name {
-#    value = azurerm_key_vault.nxsapp_kv.name
-#}
-
-output kv_base {
+output keyvault_info {
   value = {
     kv_name = azurerm_key_vault.nxsapp_kv.name
     kv_id = azurerm_key_vault.nxsapp_kv.id

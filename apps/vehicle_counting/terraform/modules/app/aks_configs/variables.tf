@@ -3,11 +3,15 @@ variable base {
     description = "Base configuration"
 }
 
-variable aks_base {
+variable aks_info {
     type = any
 }
 
-variable kv_base {
+variable nxs_aks_configs_info {
+    type = any
+}
+
+variable keyvault_info {
     type = any
 }
 
