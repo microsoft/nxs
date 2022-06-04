@@ -176,5 +176,6 @@ output nxs_info {
     rg_info = module.rg.rg_info
     aks_info = module.aks.aks_info
     aks_configs_info = module.aks_configs.aks_configs_info
+    aks_deployments_info = module.aks_deployments.aks_deployments_info
   }
 }
