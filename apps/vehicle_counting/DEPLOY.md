@@ -2,7 +2,7 @@
 
 ## Requirements
 - Linux machine
-- ACR
+- Azure Container Registry
 - Docker
 
 ## NOTE:
@@ -11,8 +11,8 @@ This version will deploy NXS cluster along with Vehicle Counting App cluster.
 It does not require existing NXS cluster.
 ```
 
-## Build worker container and upload to your ACR
-NOTE: Container MUST be built on Linux.
+## Step 1: Build worker container and upload to your ACR
+NOTE: Container **MUST** be built on Linux.
 
 ```
 export ACR_LOGIN_SERVER_NAME=<YOUR ACR LOGIN SERVER NAME>
@@ -31,7 +31,7 @@ docker push $ACR_LOGIN_SERVER/vcapi:v0.1
 docker push $ACR_LOGIN_SERVER/vcworker:v0.1
 ```
 
-## Deploy to Azure
+## Step 2: Deploy to Azure
 Edit apps/vehicle_counting/terraform/envs/sample/main.tf
 
 ```
@@ -69,24 +69,24 @@ locals {
         # container configs
         containers = {
             scheduler = {
-                nxs_scheduler_image             = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container
-                nxs_scheduler_image_tag         = "v0.1.0"                    #replace with nxs container version
+                nxs_scheduler_image             = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container from step 1
+                nxs_scheduler_image_tag         = "v0.1.0"                    #replace with nxs container version from step 1
             }
             workload_manager = {
-                nxs_workload_manager_image      = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container
-                nxs_workload_manager_image_tag  = "v0.1.0"                    #replace with nxs container version
+                nxs_workload_manager_image      = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container from step 1
+                nxs_workload_manager_image_tag  = "v0.1.0"                    #replace with nxs container version from step 1
             }
             backend_monitor = {
-                nxs_backend_monitor_image       = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container
-                nxs_backend_monitor_image_tag   = "v0.1.0"                    #replace with nxs container version
+                nxs_backend_monitor_image       = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container from step 1
+                nxs_backend_monitor_image_tag   = "v0.1.0"                    #replace with nxs container version from step 1
             }
             backend_gpu = {
-                nxs_backend_gpu_image           = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container
-                nxs_backend_gpu_image_tag       = "v0.1.0"                    #replace with nxs container version
+                nxs_backend_gpu_image           = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container from step 1
+                nxs_backend_gpu_image_tag       = "v0.1.0"                    #replace with nxs container version from step 1
             }
             frontend = {
-                nxs_api_image                   = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container
-                nxs_api_image_tag               = "v0.1.0"                    #replace with nxs container version
+                nxs_api_image                   = "nxsoss.azurecr.io/nxs/dev" #replace with nxs container from step 1
+                nxs_api_image_tag               = "v0.1.0"                    #replace with nxs container version from step 1
                 min_num_frontend_replicas       = 2
                 max_num_frontend_replicas       = 8
                 enable_api_v1                   = false
@@ -136,12 +136,12 @@ locals {
         # container configs
         containers = {
             app_frontend = {
-                nxsapp_api_image                = "ossnxs.azurecr.io/vcapi"       #replace with app api container
-                nxsapp_api_tag                  = "v0.1"                          #replace with app api container version
+                nxsapp_api_image                = "ossnxs.azurecr.io/vcapi"       #replace with app api container from step 1
+                nxsapp_api_tag                  = "v0.1"                          #replace with app api container version from step 1 
             }
             app_worker = {
-                nxsapp_worker_image             = "ossnxs.azurecr.io/vcworker"    #replace with app worker container
-                nxsapp_worker_tag               = "v0.1"                          #replace with app worker container version
+                nxsapp_worker_image             = "ossnxs.azurecr.io/vcworker"    #replace with app worker container from step 1
+                nxsapp_worker_tag               = "v0.1"                          #replace with app worker container version from step 1
             }
         }
 
@@ -204,15 +204,20 @@ terraform plan
 terraform apply
 ```
 
-Once the deployment is finished, you can access the cluster using "AppUrl", "ApiKey" in the keyvault's secrets in the new resource group.
+Once the deployment is finished, there would be two keyvauls created in your subscription. 
 
-You can also access the swagger page stored in "AppSwaggerUrl" secret.
+The keyvault starts with "nxs-" which contains all the secrets including "NxsUrl", "NxsSwaggerUrl" and "ApiKey" to access NXS cluster. 
 
-## Register detector and tracker to NXS
+The other keyvault starts with "nxsapp-" contains all the secrets including "AppUrl", "AppSwaggerUrl" and "ApiKey" to let you access  the vehicle counting application and run the experiments.
+
+## Step 3: Register detector and tracker models to NXS
+
+**NOTE**: You'll need to deploy these models below in order to run the counting experiments.
+
 ```
-export NXS_URL="URL TO NXS CLUSTER"
-export API_KEY="API KEY TO ACCESS NXS CLUSTER"
-export TRACKER_MODEL_URL="URL TO TRACKER MODEL" # tracker is under release review process, please contact author to request for access
+export NXS_URL="URL TO NXS CLUSTER"                 # "NxsUrl" stored in "nxs-" keyvault
+export API_KEY="API KEY TO ACCESS NXS CLUSTER"      # "ApiKey" stored in "nxs-" keyvault
+export TRACKER_MODEL_URL="URL TO TRACKER MODEL"     # tracker is under release review process, please contact author to request for access
 python apps/vehicle_counting/models/register_yolox-s.py
 python apps/vehicle_counting/models/register_siammask_tracker.py --model_url $TRACKER_MODEL_URL
 ```
