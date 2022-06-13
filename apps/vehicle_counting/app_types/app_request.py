@@ -40,7 +40,7 @@ class TrackingRegion(DataModel):
 class TrackingAppRequest(DataModel):
     video_url: str
     regions: List[TrackingRegion]
-    skip_frames: Optional[int] = 3
+    skip_frames: Optional[int] = 1
     tracking_classes: Optional[List[TrackableClass]] = [
         TrackableClass.CAR,
         # TrackableClass.MOTORCYCLE,
@@ -49,6 +49,7 @@ class TrackingAppRequest(DataModel):
     ]
     count_interval_secs: Optional[int] = 900
     debug: Optional[bool] = False
+    job_duration: int = 604800
 
 
 class TrackingAppResponse(DataModel):
@@ -65,6 +66,11 @@ class TrackingCountPerClass(DataModel):
     count: int
 
 
+class TrackingAppStatus(DataModel):
+    status: RequestStatus = RequestStatus.PENDING
+    error: str = ""
+
+
 class TrackingCountPerRoi(DataModel):
     roi_idx: int
     counts: List[TrackingCountPerClass]
@@ -72,6 +78,10 @@ class TrackingCountPerRoi(DataModel):
 
 class TrackingCountResult(DataModel):
     timestamp: float
+    segment_starting_utc_time: str
+    segment_starting_utc_timestamp: float
+    segment_ending_utc_time: str
+    segment_ending_utc_timestamp: float
     counts: List[TrackingCountPerRoi]
 
 
