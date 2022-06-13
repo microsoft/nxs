@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from nxs_types.infer import (
     NxsInferInput,
     NxsInferInputType,
+    NxsInferStatus,
     NxsTensorsInferRequest,
 )
 from nxs_types.infer_result import (
@@ -25,7 +26,11 @@ def send_post_bytes_request(url, payload: bytes, headers={}, timeout=60000):
 
 
 def run_detector(
-    infer_url: str, model_uuid: str, img: np.ndarray, api_key: str = ""
+    infer_url: str,
+    model_uuid: str,
+    img: np.ndarray,
+    api_key: str = "",
+    num_retries: int = 5,
 ) -> NxsInferResult:
     payload = pickle.dumps(
         NxsTensorsInferRequest(
@@ -45,11 +50,17 @@ def run_detector(
     if api_key != "":
         headers["x-api-key"] = api_key
 
-    for _ in range(5):
+    for retry in range(num_retries):
         try:
             r = send_post_bytes_request(infer_url, payload, headers)
-            return NxsInferResult(**(json.loads(r.content)))
-        except:
+            infer_result = NxsInferResult(**(json.loads(r.content)))
+            if infer_result.status == NxsInferStatus.FAILED:
+                raise ValueError(infer_result.error_msgs[0])
+            return infer_result
+        except Exception as e:
+            if retry == num_retries - 1:
+                raise e
+
             time.sleep(0.1)
 
 
@@ -60,6 +71,7 @@ def run_tracker(
     img: np.ndarray,
     prev_bbox: NxsInferDetectorBBoxLocation,
     api_key: str = "",
+    num_retries: int = 5,
 ) -> NxsInferResult:
     payload = pickle.dumps(
         NxsTensorsInferRequest(
@@ -96,11 +108,16 @@ def run_tracker(
     if api_key != "":
         headers["x-api-key"] = api_key
 
-    for _ in range(5):
+    for retry in range(num_retries):
         try:
             r = send_post_bytes_request(infer_url, payload, headers)
-            return NxsInferResult(**(json.loads(r.content)))
-        except:
+            infer_result = NxsInferResult(**(json.loads(r.content)))
+            if infer_result.status == NxsInferStatus.FAILED:
+                raise ValueError(infer_result.error_msgs[0])
+            return infer_result
+        except Exception as e:
+            if retry == num_retries - 1:
+                raise e
             time.sleep(0.1)
 
 
