@@ -421,6 +421,48 @@ class OfflineVehicleTrackingApp:
         self.track_count += 1
         return self.track_count
 
+    def get_chunk_names(self):
+        base_url = self.video_url[: self.video_url.rindex("/")]
+
+        chunk_names = []
+
+        chunklist_path = ""
+        for retry in range(12):
+            try:
+                data = requests.get(self.video_url).content.decode("utf-8")
+                lines = data.split("\n")
+
+                for line in lines:
+                    if ".m3u8" in line:
+                        chunklist_path = f"{base_url}/{line}"
+                    if ".ts" in line:
+                        chunk_names.append(line)
+                break
+            except:
+                time.sleep(5)
+                if retry == 11:
+                    self.video_ended = True
+
+        if chunk_names:
+            return chunk_names
+
+        for retry in range(12):
+            try:
+                data = requests.get(chunklist_path).content.decode("utf-8")
+                lines = data.split("\n")
+
+                for line in lines:
+                    if ".ts" in line:
+                        chunk_names.append(line)
+
+                break
+            except:
+                time.sleep(5)
+                if retry == 11:
+                    self.video_ended = True
+
+        return chunk_names
+
     def download_video_thread(self):
         print("Download thread is started...")
 
@@ -438,21 +480,7 @@ class OfflineVehicleTrackingApp:
                 self.video_ended = True
                 break
 
-            chunk_names = []
-            for retry in range(12):
-                try:
-                    data = requests.get(self.video_url).content.decode("utf-8")
-                    lines = data.split("\n")
-
-                    for line in lines:
-                        if ".ts" in line:
-                            chunk_names.append(line)
-
-                    break
-                except:
-                    time.sleep(5)
-                    if retry == 11:
-                        self.video_ended = True
+            chunk_names = self.get_chunk_names()
 
             if self.video_ended:
                 break
