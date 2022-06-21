@@ -47,11 +47,27 @@ class NxsPoint(DataModel):
     y: float
 
 
+class OcrCharResult(DataModel):
+    text: str
+    score: float
+    bbox: List[NxsPoint] = []
+    rbbox: List[NxsPoint] = []
+
+
+class OcrWordResult(DataModel):
+    text: str
+    score: float
+    bbox: List[NxsPoint] = []
+    rbbox: List[NxsPoint] = []
+    chars: List[OcrCharResult] = []
+
+
 class NxsInferOcrResult(DataModel):
     text: str
     score: float
     line_bbox: List[NxsPoint]
     line_rbbox: List[NxsPoint]
+    words: List[OcrWordResult] = []
 
 
 class NxsInferEmbeddingResult(DataModel):
