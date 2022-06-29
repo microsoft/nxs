@@ -421,13 +421,13 @@ class OfflineVehicleTrackingApp:
         self.track_count += 1
         return self.track_count
 
-    def get_chunk_names(self):
+    def get_chunk_names(self, num_retries: int = 60):
         base_url = self.video_url[: self.video_url.rindex("/")]
 
         chunk_names = []
 
         chunklist_path = ""
-        for retry in range(12):
+        for retry in range(num_retries):
             try:
                 data = requests.get(self.video_url).content.decode("utf-8")
                 lines = data.split("\n")
@@ -437,16 +437,20 @@ class OfflineVehicleTrackingApp:
                         chunklist_path = f"{base_url}/{line}"
                     if ".ts" in line:
                         chunk_names.append(line)
-                break
+
+                if chunk_names or chunklist_path != "":
+                    break
+                else:
+                    time.sleep(5)
             except:
                 time.sleep(5)
-                if retry == 11:
+                if retry == num_retries - 1:
                     self.video_ended = True
 
         if chunk_names:
             return chunk_names
 
-        for retry in range(12):
+        for retry in range(num_retries):
             try:
                 data = requests.get(chunklist_path).content.decode("utf-8")
                 lines = data.split("\n")
@@ -458,7 +462,7 @@ class OfflineVehicleTrackingApp:
                 break
             except:
                 time.sleep(5)
-                if retry == 11:
+                if retry == num_retries - 1:
                     self.video_ended = True
 
         return chunk_names
