@@ -1,53 +1,45 @@
 import copy
 import logging
+import multiprocessing
+import os
 import shutil
 import zipfile
-import multiprocessing
+from multiprocessing import Process, Value
 from multiprocessing.managers import SyncManager
-import os
-import GPUtil
-from main_processes.backend.compute_process_onnx import (
-    BackendComputeProcessOnnx,
-)
+from threading import Lock, Thread
 
-from main_processes.backend.input_process import BackendInputProcess
-from main_processes.backend.input_process_basic import (
-    BackendBasicInputProcess,
-)
-from main_processes.backend.preprocessing_process import (
-    BackendPreprocessingProcess,
-)
+import GPUtil
+from configs import *
+from lru import LRU
 from main_processes.backend.batcher_process import BackendBatcherProcess
+from main_processes.backend.compute_process_onnx import BackendComputeProcessOnnx
+from main_processes.backend.input_process import BackendInputProcess
+from main_processes.backend.input_process_basic import BackendBasicInputProcess
 from main_processes.backend.output_process import (
-    BackendOutputProcess,
     BackendBasicOutputProcess,
+    BackendOutputProcess,
 )
+from main_processes.backend.preprocessing_process import BackendPreprocessingProcess
 from nxs_libs.interface.backend.dispatcher import BackendDispatcherType
-from nxs_libs.interface.backend.input import BackendInputInterfaceType
 from nxs_libs.interface.backend.global_dispatcher import (
     BasicGlobalDispatcher,
     MiniDispatcherInputData,
     MiniDispatcherUpdateData,
 )
-from nxs_libs.storage_cache import (
-    NxsBaseStorageCache,
-    NxsLocalStorageCache,
-)
-from nxs_types.log import NxsBackendThroughputLog
-from nxs_types.nxs_args import NxsBackendArgs
+from nxs_libs.interface.backend.input import BackendInputInterfaceType
+from nxs_libs.storage_cache import NxsBaseStorageCache, NxsLocalStorageCache
 from nxs_types.backend import GpuInfo, NxsBackendType
+from nxs_types.log import NxsBackendThroughputLog
 from nxs_types.message import *
 from nxs_types.model import Framework, NxsCompositoryModel, NxsModel
-from nxs_types.scheduling_data import NxsSchedulingPerCompositorymodelPlan
-from nxs_utils.nxs_helper import *
+from nxs_types.nxs_args import NxsBackendArgs
+from nxs_types.scheduling_data import (
+    NxsSchedulingPerCompositorymodelPlan,
+    NxsUnschedulingPerCompositoryPlan,
+)
 from nxs_utils.common import create_dir_if_needed, delete_and_create_dir
 from nxs_utils.logging import setup_logger
-from configs import *
-
-from threading import Thread, Lock
-from multiprocessing import Process, Value
-
-from lru import LRU
+from nxs_utils.nxs_helper import *
 
 
 class InferRuntimeInfo:
@@ -210,6 +202,28 @@ class NxsBackendBaseProcess(ABC):
                         self._process_change_heartbeat_interval(msg)
                     elif msg.type == NxsMsgType.REQUEST_REREGISTER_BACKEND:
                         self._register_backend()
+                        # remove all models
+                        for key in list(self.infer_runtime_map.keys()):
+                            model_uuid = self.infer_runtime_map[
+                                key
+                            ].cmodel_plan.model_uuid
+                            unschedule_plan = NxsUnschedulingPerBackendPlan(
+                                backend_name=self.backend_name,
+                                compository_model_plans=[
+                                    NxsUnschedulingPerCompositoryPlan(
+                                        model_uuid=self.infer_runtime_map[
+                                            key
+                                        ].cmodel_plan.model_uuid,
+                                        session_uuid_list=copy.deepcopy(
+                                            self.infer_runtime_map[
+                                                key
+                                            ].cmodel_plan.session_uuid_list
+                                        ),
+                                    )
+                                ],
+                            )
+                            self._process_unscheduling_plan(unschedule_plan, manager)
+                            print(f"Removed model {model_uuid}")
                     elif msg.type == NxsMsgType.SCHEDULE_PLAN:
                         self.global_dispatcher_lock.acquire()
                         self._process_scheduling_plan(msg.plan, manager)

@@ -1,10 +1,10 @@
 import time
 
-from nxs_types.nxs_args import NxsBaseArgs
 from nxs_libs.db import *
-from nxs_libs.storage import *
 from nxs_libs.queue import *
 from nxs_libs.simple_key_value_db import *
+from nxs_libs.storage import *
+from nxs_types.nxs_args import NxsBaseArgs
 
 
 def init_redis_client(address: str, port: int, password: str, is_using_ssl=False):
@@ -28,6 +28,8 @@ def init_redis_client(address: str, port: int, password: str, is_using_ssl=False
                 password=password,
                 ssl=is_using_ssl,
                 ssl_cert_reqs="none",
+                socket_timeout=10,
+                socket_connect_timeout=10,
             )
 
         # try to ping
@@ -49,6 +51,8 @@ def init_redis_client(address: str, port: int, password: str, is_using_ssl=False
             password=password,
             ssl=is_using_ssl,
             ssl_cert_reqs="none",
+            socket_timeout=10,
+            socket_connect_timeout=10,
         )
 
     return None
