@@ -1,36 +1,17 @@
 import copy
 import json
-import time
 import logging
-from lru import LRU
+import time
+
 from configs import GLOBAL_QUEUE_NAMES, NXS_CONFIG
+from lru import LRU
+from nxs_libs.db import NxsDb, NxsDbFactory, NxsDbType
+from nxs_libs.interface.scheduling_policy import BaseSchedulingPolicy
 from nxs_libs.interface.scheduling_policy.simple_policy_v2 import (
     SimpleSchedulingPolicyv2,
 )
-from nxs_libs.queue import NxsQueuePuller, NxsQueuePusher
-from nxs_libs.simple_key_value_db import (
-    NxsSimpleKeyValueDb,
-    NxsSimpleKeyValueDbFactory,
-    NxsSimpleKeyValueDbType,
-)
-from nxs_libs.db import NxsDb, NxsDbFactory, NxsDbType
 from nxs_libs.object.backend_runtime import NxsBackendRuntime
 from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
-from nxs_libs.interface.scheduling_policy import BaseSchedulingPolicy
-from nxs_types.backend import BackendInfo
-from nxs_types.log import (
-    NxsSchedulerLog,
-    SimplifiedNxsSchedulingPerBackendPlan,
-    SimplifiedNxsSchedulingRequest,
-)
-from nxs_types.model import (
-    NxsCompositoryModel,
-    NxsModel,
-    NxsPipelineInfo,
-)
-from nxs_types.nxs_args import NxsSchedulerArgs
-from nxs_types.message import *
-from nxs_types.scheduling_data import NxsSchedulingRequest
 from nxs_libs.queue import (
     NxsQueuePuller,
     NxsQueuePullerFactory,
@@ -38,6 +19,21 @@ from nxs_libs.queue import (
     NxsQueuePusherFactory,
     NxsQueueType,
 )
+from nxs_libs.simple_key_value_db import (
+    NxsSimpleKeyValueDb,
+    NxsSimpleKeyValueDbFactory,
+    NxsSimpleKeyValueDbType,
+)
+from nxs_types.backend import BackendInfo
+from nxs_types.log import (
+    NxsSchedulerLog,
+    SimplifiedNxsSchedulingPerBackendPlan,
+    SimplifiedNxsSchedulingRequest,
+)
+from nxs_types.message import *
+from nxs_types.model import NxsCompositoryModel, NxsModel, NxsPipelineInfo
+from nxs_types.nxs_args import NxsSchedulerArgs
+from nxs_types.scheduling_data import NxsSchedulingRequest
 from nxs_utils.logging import (
     NxsLogLevel,
     NxsLogLevel2LoggingLevelMap,
@@ -354,6 +350,8 @@ class NxsSchedulerProcess:
     def process_heartbeat_msg(self, msg: NxsMsgReportHeartbeat):
         if msg.backend_name not in self.backends:
             # ask backend to re-register
+            new_msg = NxsMsgRequestRegisterBackend()
+            self.queue_pusher.push(msg.backend_name, new_msg)
             return
 
         backend = self.backends[msg.backend_name]

@@ -1,11 +1,12 @@
 from enum import Enum
 from typing import List
+
 from nxs_types import DataModel
-from nxs_types.frontend import (
-    FrontendWorkloadReport,
-    FrontendModelPipelineWorkloadReport,
-)
 from nxs_types.backend import BackendStat
+from nxs_types.frontend import (
+    FrontendModelPipelineWorkloadReport,
+    FrontendWorkloadReport,
+)
 from nxs_types.scheduling_data import (
     NxsSchedulingPerBackendPlan,
     NxsUnschedulingPerBackendPlan,
@@ -56,6 +57,10 @@ class NxsMsgRegisterBackend(DataModel):
     type: NxsMsgType = NxsMsgType.REGISTER_BACKEND
     backend_name: str
     backend_stat: BackendStat = None
+
+
+class NxsMsgRequestRegisterBackend(DataModel):
+    type: NxsMsgType = NxsMsgType.REQUEST_REREGISTER_BACKEND
 
 
 class NxsMsgReportHeartbeat(DataModel):
