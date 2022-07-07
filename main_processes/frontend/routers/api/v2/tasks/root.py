@@ -1,17 +1,26 @@
 import asyncio
 import copy
 import pickle
+import time
+from datetime import datetime
 from re import T
 from threading import Thread
 from typing import Union
-from fastapi import APIRouter, File, Request, Security, UploadFile
-from fastapi import HTTPException, status
-from fastapi import Depends
-import fastapi
-from fastapi.security import APIKeyHeader
 
-import time
-from datetime import datetime
+import fastapi
+from configs import *
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    Security,
+    UploadFile,
+    status,
+)
+from fastapi.security import APIKeyHeader
+from main_processes.frontend.args import parse_args
 from main_processes.frontend.utils import (
     async_download_to_memory,
     download_from_direct_link,
@@ -61,13 +70,9 @@ from nxs_types.message import (
     NxsMsgReportInputWorkloads,
     NxsMsgUnpinWorkload,
 )
-
-from nxs_utils.nxs_helper import *
-from nxs_utils.common import *
 from nxs_types.model import *
-
-from configs import *
-from main_processes.frontend.args import parse_args
+from nxs_utils.common import *
+from nxs_utils.nxs_helper import *
 
 # setup global variables
 args = parse_args()
@@ -558,15 +563,97 @@ if args.enable_benchmark_api:
 
 if args.enable_scaling:
 
+    """
+    def get_num_deployment_replicas(deployment_name: str) -> int:
+        num_replicas = 0
+        deployment_items = []
+
+        try:
+            from kubernetes import client, config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace="nxs")
+            deployment_items = deployment.items
+        except Exception as e:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Internal error. Please try again later.",
+            )
+
+        for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
+            if item.metadata.labels["name"] == deployment_name:
+                num_replicas = item.spec.replicas
+
+        return num_replicas
+    """
+
+    def get_deployment_replicas_info(deployment_name: str) -> Tuple[int, int]:
+        num_replicas = 0
+        num_ready_replicas = 0
+
+        deployment_items = []
+
+        try:
+            from kubernetes import client, config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace="nxs")
+            deployment_items = deployment.items
+        except Exception as e:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Internal error. Please try again later.",
+            )
+
+        for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
+            if item.metadata.labels["name"] == deployment_name:
+                try:
+                    num_replicas = item.spec.replicas
+                    num_ready_replicas = item.status.ready_replicas
+                except:
+                    pass
+
+        if num_replicas is None:
+            num_replicas = 0
+        if num_ready_replicas is None:
+            num_ready_replicas = 0
+
+        return num_replicas, num_ready_replicas
+
     @router.post("/backends/scale/gpu", response_model=BasicResponse)
     async def scale_backends(
         num_backends: int,
+        force_scaling: bool = False,
         authenticated: bool = Depends(check_api_key),
     ):
         if num_backends < 0:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 "num_backends must be at least 0",
+            )
+
+        (
+            num_requested_gpu_backends,
+            num_available_gpu_backends,
+        ) = get_deployment_replicas_info("nxs-backend-gpu")
+
+        if (
+            num_requested_gpu_backends != num_available_gpu_backends
+            and not force_scaling
+        ):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Scaling is in process, please retry later after a few minutes.",
             )
 
         deployment_items = []
@@ -640,33 +727,6 @@ async def get_monitoring_backend_reports(
 
 if args.enable_scaling:
 
-    def get_num_deployment_replicas(deployment_name: str) -> int:
-        num_replicas = 0
-        deployment_items = []
-
-        try:
-            from kubernetes import client, config
-
-            config.load_kube_config()
-
-            api_instance = client.AppsV1Api()
-            deployment = api_instance.list_namespaced_deployment(namespace="nxs")
-            deployment_items = deployment.items
-        except Exception as e:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Internal error. Please try again later.",
-            )
-
-        for item in deployment_items:
-            if "name" not in item.metadata.labels:
-                continue
-
-            if item.metadata.labels["name"] == deployment_name:
-                num_replicas = item.spec.replicas
-
-        return num_replicas
-
     @router.get(
         "/monitoring/backend_deployments", response_model=NxsBackendDeploymentsLog
     )
@@ -678,15 +738,24 @@ if args.enable_scaling:
         num_available_cpu_backends = 0
         num_available_gpu_backends = 0
 
-        backend_infos = get_backend_logs()
-        for backend_info in backend_infos:
-            if backend_info.backend_type == NxsBackendType.CPU:
-                num_available_cpu_backends += 1
-            elif backend_info.backend_type == NxsBackendType.GPU:
-                num_available_gpu_backends += 1
+        # backend_infos = get_backend_logs()
+        # for backend_info in backend_infos:
+        #     if backend_info.backend_type == NxsBackendType.CPU:
+        #         num_available_cpu_backends += 1
+        #     elif backend_info.backend_type == NxsBackendType.GPU:
+        #         num_available_gpu_backends += 1
 
-        num_requested_cpu_backends = get_num_deployment_replicas("nxs-backend-cpu")
-        num_requested_gpu_backends = get_num_deployment_replicas("nxs-backend-gpu")
+        # num_requested_cpu_backends = get_num_deployment_replicas("nxs-backend-cpu")
+        # num_requested_gpu_backends = get_num_deployment_replicas("nxs-backend-gpu")
+
+        (
+            num_requested_cpu_backends,
+            num_available_cpu_backends,
+        ) = get_deployment_replicas_info("nxs-backend-cpu")
+        (
+            num_requested_gpu_backends,
+            num_available_gpu_backends,
+        ) = get_deployment_replicas_info("nxs-backend-gpu")
 
         return NxsBackendDeploymentsLog(
             num_requested_cpu_backends=num_requested_cpu_backends,
