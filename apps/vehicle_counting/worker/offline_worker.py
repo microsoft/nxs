@@ -1,35 +1,29 @@
-import os
-import time
-import json
 import copy
-import cv2
+import json
+import os
 import threading
-import numpy as np
-from shapely.geometry import Point, Polygon
-from typing import Dict, List, Tuple
-from dataclasses import dataclass
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
-from nxs_libs.db import NxsDbFactory, NxsDbType
-from nxs_libs.storage import NxsStorageFactory, NxsStorageType
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Dict, List, Tuple
+
+import cv2
+import numpy as np
 from apps.vehicle_counting.app_types.app_request import (
     InDbTrackingAppRequest,
     RequestStatus,
 )
-
-from nxs_types.infer import (
-    NxsInferInput,
-    NxsInferInputType,
-    NxsTensorsInferRequest,
-)
+from apps.vehicle_counting.worker.utils import *
+from nxs_libs.db import NxsDbFactory, NxsDbType
+from nxs_libs.storage import NxsStorageFactory, NxsStorageType
+from nxs_types.infer import NxsInferInput, NxsInferInputType, NxsTensorsInferRequest
 from nxs_types.infer_result import (
     NxsInferDetectorBBoxLocation,
     NxsInferDetectorResult,
     NxsInferResult,
 )
-
-from apps.vehicle_counting.worker.utils import *
-
-from datetime import datetime, timezone
+from shapely.geometry import Point, Polygon
 
 DB_TASKS_COLLECTION_NAME = "tasks"
 DB_COUNTS_COLLECTION_NAME = "counts"
@@ -38,6 +32,8 @@ STORAGE_LOGS_DIR_PATH = "logs"
 
 
 class OfflineVehicleTrackingApp:
+    DATA_DIR = "/data"
+
     def __init__(
         self,
         video_uuid: str,
@@ -126,6 +122,9 @@ class OfflineVehicleTrackingApp:
         for class_name in self.tracking_classes:
             for class_count_dict in self.class_count_dicts:
                 class_count_dict[class_name] = 0
+
+        if not os.path.exists(self.DATA_DIR):
+            os.makedirs(self.DATA_DIR)
 
         self.job_completed = False
         self.video_ended = False
@@ -504,7 +503,7 @@ class OfflineVehicleTrackingApp:
                 for _ in range(3):
                     try:
                         data = requests.get(chunk_url, allow_redirects=True).content
-                        chunk_path = f"chunk_{idx}"
+                        chunk_path = f"{self.DATA_DIR}/chunk_{idx}"
                         open(chunk_path, "wb").write(data)
                         self.downloaded_videos.append((chunk_idx, chunk_path))
                         break
