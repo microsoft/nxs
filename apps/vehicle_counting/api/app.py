@@ -81,6 +81,24 @@ async def check_api_key(api_key_header: str = Security(api_key_header)):
     return True
 
 
+@app.get("/jobs", response_model=List[str])
+def get_jobs(
+    authenticated: bool = Depends(check_api_key),
+):
+    from kubernetes import client, config
+
+    config.load_kube_config()
+    api_instance = client.BatchV1Api()
+    jobs = api_instance.list_job_for_all_namespaces().items
+
+    task_uuids: List[str] = []
+    for job in jobs:
+        task_uuid = job.metadata.name
+        task_uuids.append(task_uuid)
+
+    return task_uuids
+
+
 @app.post("/jobs/clean")
 def clean_cluster(
     background_tasks: BackgroundTasks,
