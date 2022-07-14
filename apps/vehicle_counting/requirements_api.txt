@@ -5,3 +5,4 @@ azure-cosmos==4.0.0
 azure-storage-blob==12.8.1
 fastapi==0.72.0
 uvicorn[standard]==0.17.0
+kubernetes==24.2.0
