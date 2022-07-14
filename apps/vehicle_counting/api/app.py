@@ -261,14 +261,20 @@ def terminate_job(
 
     # if results[0]["status"] in [RequestStatus.PENDING, RequestStatus.RUNNING]:
     subprocess.run(["kubectl", "delete", "job", video_uuid, "-n", "nxsapp"])
-    db_client.update(
-        DB_TASKS_COLLECTION_NAME,
-        {
-            "video_uuid": video_uuid,
-            "zone": "global",
-        },
-        {"status": RequestStatus.STOPPED},
-    )
+
+    if results[0]["status"] not in [
+        RequestStatus.COMPLETED.value,
+        RequestStatus.FAILED.value,
+        RequestStatus.STOPPED.value,
+    ]:
+        db_client.update(
+            DB_TASKS_COLLECTION_NAME,
+            {
+                "video_uuid": video_uuid,
+                "zone": "global",
+            },
+            {"status": RequestStatus.STOPPED},
+        )
 
     pvc_name = f"pvc{video_uuid}".lower()
     background_tasks.add_task(remove_pvc, pvc_name)
