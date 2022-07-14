@@ -131,6 +131,11 @@ class OfflineVehicleTrackingApp:
         self.video_frames = []
         self.video_frame_timestamps = []
 
+        # create a log file
+        self.LOG_FILE = f"{video_uuid}.txt"
+        with open(self.LOG_FILE, "w") as f:
+            pass
+
         self.starting_utc_time = datetime.now(timezone.utc)
         self.starting_utc_ts = datetime.now(timezone.utc).timestamp()
 
@@ -143,6 +148,13 @@ class OfflineVehicleTrackingApp:
 
         self.decode_thr = threading.Thread(target=self.decode_video_thread, args=())
         self.decode_thr.start()
+
+    def _append_log(self, data):
+        current_time = datetime.utcnow().strftime("%D:%H:%M:%S")
+        print("{} - {}".format(current_time, data))
+        with open(self.LOG_FILE, "a") as f:
+            f.write("{} - {}".format(current_time, data))
+            f.write("\n")
 
     def run_tracking(self):
         def process_frames(obj_id: int, frames: List[np.ndarray]):
@@ -173,6 +185,9 @@ class OfflineVehicleTrackingApp:
 
         avg_lat = 0
         count = 0
+
+        self._update_log_file()
+        last_updated_log_ts = time.time()
 
         while not self.STOP_FLAG:
             t0 = time.time()
@@ -295,9 +310,9 @@ class OfflineVehicleTrackingApp:
                 self.snapshot_stats(log_frame, frames_timestamps[-1])
 
                 if len(self.logs) >= 10:
-                    print("uploading logs")
+                    # print("uploading logs")
                     self.upload_logs()
-                    print("finished uploading logs")
+                    # print("finished uploading logs")
 
             lat = time.time() - t0
 
@@ -311,14 +326,35 @@ class OfflineVehicleTrackingApp:
 
             miss_rate = float(miss_deadline) / (miss_deadline + hit_deadline)
 
-            # print(self.total_processed_frames, len(self.track_dict), lat)
-            print(f"Total processed frames: {self.total_processed_frames}")
-            print(f"Total objects this round: {len(self.track_dict)}")
-            print(f"Latency this round: {lat} secs")
-            print(f"Avg latency: {avg_lat} secs")
-            print(f"Miss rate: {miss_rate}")
-            print(self.class_count_dicts)
-            print("")
+            if count % 300 != 1:
+                continue
+
+            # print(f"Total processed frames: {self.total_processed_frames}")
+            # print(f"Total objects this round: {len(self.track_dict)}")
+            # print(f"Latency this round: {lat} secs")
+            # print(f"Avg latency: {avg_lat} secs")
+            # print(f"Miss rate: {miss_rate}")
+            # print(self.class_count_dicts)
+            # print("")
+
+            self._append_log(f"Total processed frames: {self.total_processed_frames}")
+            self._append_log(f"Latency this round: {lat} secs")
+            self._append_log(f"Avg latency: {avg_lat} secs")
+            self._append_log(f"Counts: {self.class_count_dicts}")
+            self._append_log("")
+
+            if time.time() - last_updated_log_ts > 1800:
+                self._update_log_file()
+                last_updated_log_ts = time.time()
+
+    def _update_log_file(self):
+        storage_client = NxsStorageFactory.create_storage(
+            NxsStorageType.AzureBlobstorage,
+            connection_str=self.blobstore_conn_str,
+            container_name=self.blobstore_container_name,
+        )
+
+        storage_client.upload(self.LOG_FILE, STORAGE_LOGS_DIR_PATH, True)
 
     def report_counting(self, ts):
         cosmosdb_client = NxsDbFactory.create_db(
@@ -441,7 +477,8 @@ class OfflineVehicleTrackingApp:
                     break
                 else:
                     time.sleep(5)
-            except:
+            except Exception as e:
+                self._append_log(str(e))
                 time.sleep(5)
                 if retry == num_retries - 1:
                     self.video_ended = True
@@ -459,7 +496,8 @@ class OfflineVehicleTrackingApp:
                         chunk_names.append(line)
 
                 break
-            except:
+            except Exception as e:
+                self._append_log(str(e))
                 time.sleep(5)
                 if retry == num_retries - 1:
                     self.video_ended = True
@@ -467,7 +505,7 @@ class OfflineVehicleTrackingApp:
         return chunk_names
 
     def download_video_thread(self):
-        print("Download thread is started...")
+        self._append_log("Download thread is started...")
 
         base_url = self.video_url[: self.video_url.rindex("/")]
         last_downloaded = []
@@ -495,7 +533,7 @@ class OfflineVehicleTrackingApp:
                 if chunk_name in last_downloaded:
                     continue
 
-                print(f"Downloading chunk {chunk_name}\n")
+                # print(f"Downloading chunk {chunk_name}\n")
 
                 chunk_idx = int(chunk_name.replace(".ts", "").split("_")[-1])
                 chunk_url = f"{base_url}/{chunk_name}"
@@ -507,7 +545,8 @@ class OfflineVehicleTrackingApp:
                         open(chunk_path, "wb").write(data)
                         self.downloaded_videos.append((chunk_idx, chunk_path))
                         break
-                    except:
+                    except Exception as e:
+                        self._append_log(str(e))
                         time.sleep(1)
 
                 if len(last_downloaded) > 10:
@@ -520,10 +559,10 @@ class OfflineVehicleTrackingApp:
 
             time.sleep(3)
 
-        print("Download thread is stopped...")
+        self._append_log("Download thread is stopped...")
 
     def decode_video_thread(self):
-        print("Decode thread is started...")
+        self._append_log("Decode thread is started...")
 
         last_chunk_idx = -1
         frame_idx = 0
@@ -550,7 +589,7 @@ class OfflineVehicleTrackingApp:
 
             chunk_idx, chunk_path = self.downloaded_videos.pop(0)
 
-            print(f"Decoding chunk {chunk_path}\n")
+            # print(f"Decoding chunk {chunk_path}\n")
 
             if last_chunk_idx > 0 and chunk_idx < last_chunk_idx:
                 delta = chunk_idx - last_chunk_idx - 1
@@ -590,7 +629,7 @@ class OfflineVehicleTrackingApp:
 
             last_chunk_idx = chunk_idx
 
-        print("Decode thread is stopped...")
+        self._append_log("Decode thread is stopped...")
 
     """
     def get_batch(self, batch_size):

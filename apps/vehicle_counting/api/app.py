@@ -297,6 +297,48 @@ def get_videos(status: RequestStatus, authenticated: bool = Depends(check_api_ke
     return [r["video_uuid"] for r in results]
 
 
+@app.get("/video/log", response_model=str)
+def get_video_log(video_uuid: str, authenticated: bool = Depends(check_api_key)):
+    db_client = NxsDbFactory.create_db(
+        NxsDbType.MONGODB,
+        uri=args.cosmosdb_conn_str,
+        db_name=args.cosmosdb_db_name,
+    )
+
+    results = db_client.query(
+        DB_TASKS_COLLECTION_NAME,
+        {"zone": "global", "video_uuid": video_uuid},
+    )
+
+    if not results:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Non-existing video.",
+        )
+
+    blob_service_client = BlobServiceClient.from_connection_string(
+        args.blobstore_conn_str
+    )
+    sas_token = generate_account_sas(
+        blob_service_client.account_name,
+        account_key=blob_service_client.credential.account_key,
+        resource_types=ResourceTypes(container=True, object=True),
+        # permission=AccountSasPermissions(read=True, list=True),
+        permission=AccountSasPermissions(read=True),
+        expiry=datetime.utcnow() + timedelta(hours=24),
+    )
+
+    path = f"logs/{video_uuid}.txt"
+    sas_url = generate_blobstore_sas_url(
+        blob_service_client.account_name,
+        args.blobstore_container,
+        path,
+        sas_token,
+    )
+
+    return sas_url
+
+
 @app.get("/video/status", response_model=TrackingAppStatus)
 def get_video_status(video_uuid: str, authenticated: bool = Depends(check_api_key)):
     db_client = NxsDbFactory.create_db(
