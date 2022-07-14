@@ -170,6 +170,7 @@ class OfflineVehicleTrackingApp:
                     frame,
                     obj_track.track[-1],
                     self.nxs_api_key,
+                    logging_fn=self._append_log,
                 )
 
                 obj_track.track.append(infer_res.detections[0].bbox)
@@ -224,7 +225,11 @@ class OfflineVehicleTrackingApp:
             self.remove_expired_objects()
 
             dets = run_detector(
-                self.nxs_infer_url, self.detector_uuid, frames[0], self.nxs_api_key
+                self.nxs_infer_url,
+                self.detector_uuid,
+                frames[0],
+                self.nxs_api_key,
+                logging_fn=self._append_log,
             ).detections
             self.process_detections(frames[0], dets)
 

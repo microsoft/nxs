@@ -1,13 +1,12 @@
-import time
-import requests
-import pickle
 import json
-import numpy as np
-import cv2
-from shapely.geometry import Point, Polygon
-from typing import Dict, List, Tuple
+import pickle
+import time
 from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
 
+import cv2
+import numpy as np
+import requests
 from nxs_types.infer import (
     NxsInferInput,
     NxsInferInputType,
@@ -19,6 +18,7 @@ from nxs_types.infer_result import (
     NxsInferDetectorResult,
     NxsInferResult,
 )
+from shapely.geometry import Point, Polygon
 
 
 def send_post_bytes_request(url, payload: bytes, headers={}, timeout=60000):
@@ -31,6 +31,7 @@ def run_detector(
     img: np.ndarray,
     api_key: str = "",
     num_retries: int = 5,
+    logging_fn: Any = None,
 ) -> NxsInferResult:
     payload = pickle.dumps(
         NxsTensorsInferRequest(
@@ -58,6 +59,9 @@ def run_detector(
                 raise ValueError(infer_result.error_msgs[0])
             return infer_result
         except Exception as e:
+            if logging_fn != None:
+                logging_fn(str(e))
+
             if retry == num_retries - 1:
                 raise e
 
@@ -72,6 +76,7 @@ def run_tracker(
     prev_bbox: NxsInferDetectorBBoxLocation,
     api_key: str = "",
     num_retries: int = 5,
+    logging_fn: Any = None,
 ) -> NxsInferResult:
     payload = pickle.dumps(
         NxsTensorsInferRequest(
@@ -116,6 +121,9 @@ def run_tracker(
                 raise ValueError(infer_result.error_msgs[0])
             return infer_result
         except Exception as e:
+            if logging_fn != None:
+                logging_fn(str(e))
+
             if retry == num_retries - 1:
                 raise e
             time.sleep(0.1)
