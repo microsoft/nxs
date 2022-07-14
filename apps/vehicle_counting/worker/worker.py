@@ -1,12 +1,12 @@
 import os
 
 import cv2
-from nxs_libs.db import NxsDbFactory, NxsDbType
 from apps.vehicle_counting.app_types.app_request import (
     InDbTrackingAppRequest,
     RequestStatus,
 )
 from apps.vehicle_counting.worker.utils import *
+from nxs_libs.db import NxsDbFactory, NxsDbType
 
 DB_TASKS_COLLECTION_NAME = "tasks"
 DB_COUNTS_COLLECTION_NAME = "counts"
@@ -47,6 +47,9 @@ def main():
     args.blobstore_container = os.environ["BLOBSTORE_CONTAINER"]
     args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
     args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
+
+    has_error: bool = False
+    error_str: str = ""
 
     try:
         db_client = NxsDbFactory.create_db(
@@ -196,21 +199,44 @@ def main():
                 {"status": RequestStatus.FAILED, "error": "stream ended"},
             )
     except Exception as e:
-        print(e)
-        db_client = NxsDbFactory.create_db(
-            NxsDbType.MONGODB,
-            uri=args.cosmosdb_conn_str,
-            db_name=args.cosmosdb_db_name,
-        )
+        error_str = str(e)
 
-        db_client.update(
-            DB_TASKS_COLLECTION_NAME,
-            {
-                "video_uuid": args.video_uuid,
-                "zone": "global",
-            },
-            {"status": RequestStatus.FAILED, "error": str(e)},
-        )
+    if has_error:
+        for _ in range(60):
+            try:
+                db_client = NxsDbFactory.create_db(
+                    NxsDbType.MONGODB,
+                    uri=args.cosmosdb_conn_str,
+                    db_name=args.cosmosdb_db_name,
+                )
+
+                db_client.update(
+                    DB_TASKS_COLLECTION_NAME,
+                    {
+                        "video_uuid": args.video_uuid,
+                        "zone": "global",
+                    },
+                    {"status": RequestStatus.FAILED, "error": error_str},
+                )
+
+                break
+            except Exception as e:
+                time.sleep(30)
+
+    # signal api server to terminate this job
+    nxsapp_api_key = os.environ["API_KEY"]
+    headers = {"x-api-key": nxsapp_api_key}
+
+    while True:
+        try:
+            requests.post(
+                "http://nxsapp-api-svc.nxsapp/video/terminate",
+                params={"video_uuid": args.video_uuid},
+                headers=headers,
+            )
+            break
+        except Exception as e:
+            time.sleep(5)
 
 
 if __name__ == "__main__":

@@ -1,22 +1,11 @@
-import os
-from typing import List
-import uvicorn
-from fastapi import Depends, FastAPI, Security
-from fastapi import HTTPException, status
-from fastapi.security import (
-    APIKeyHeader,
-)
-
-
 import argparse
+import os
+import subprocess
 import uuid
-from nxs_libs.db import (
-    NxsDbFactory,
-    NxsDbQueryConfig,
-    NxsDbSortType,
-    NxsDbType,
-)
+from datetime import datetime, timedelta
+from typing import List
 
+import uvicorn
 from apps.vehicle_counting.app_types.app_request import (
     InDbTrackingAppRequest,
     RequestStatus,
@@ -28,16 +17,17 @@ from apps.vehicle_counting.app_types.app_request import (
     TrackingCountResult,
     VisualizationResult,
 )
-
-import subprocess
-import yaml
-from datetime import datetime, timedelta
-from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import (
-    ResourceTypes,
     AccountSasPermissions,
+    BlobServiceClient,
+    ResourceTypes,
     generate_account_sas,
 )
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
+from nxs_libs.db import NxsDbFactory, NxsDbQueryConfig, NxsDbSortType, NxsDbType
+
+import yaml
 
 
 def generate_uuid() -> str:
@@ -126,8 +116,26 @@ def submit_video(
 
     db_client.insert(DB_TASKS_COLLECTION_NAME, indb_request)
 
-    # '''
     cur_dir_abs_path = os.path.dirname(os.path.realpath(__file__))
+
+    yaml_dir_path = os.path.join(cur_dir_abs_path, "yaml/jobs")
+    if not os.path.exists(yaml_dir_path):
+        os.makedirs(yaml_dir_path)
+
+    pvc_name = f"pvc{video_uuid}".lower()
+
+    yaml_path = os.path.join(cur_dir_abs_path, f"yaml/pvc.yaml")
+    yaml_data = yaml.safe_load(open(yaml_path))
+    yaml_data["metadata"]["name"] = pvc_name
+
+    output_yaml_path = os.path.join(yaml_dir_path, f"pvc_{video_uuid}.yaml")
+    with open(output_yaml_path, "w") as f:
+        yaml.dump(yaml_data, f)
+
+    subprocess.run(["kubectl", "apply", "-f", output_yaml_path])
+    os.remove(output_yaml_path)
+
+    # '''
     yaml_path = os.path.join(cur_dir_abs_path, f"yaml/app_job.yaml")
     yaml_data = yaml.safe_load(open(yaml_path))
     yaml_data["metadata"]["name"] = f"{video_uuid}"
@@ -141,10 +149,9 @@ def submit_video(
         yaml_data["spec"]["template"]["spec"]["containers"][0]["env"][1][
             "value"
         ] = "true"
-
-    yaml_dir_path = os.path.join(cur_dir_abs_path, "yaml/jobs")
-    if not os.path.exists(yaml_dir_path):
-        os.makedirs(yaml_dir_path)
+    yaml_data["spec"]["template"]["spec"]["volumes"][1]["persistentVolumeClaim"][
+        "claimName"
+    ] = pvc_name
 
     output_yaml_path = os.path.join(yaml_dir_path, f"{video_uuid}.yaml")
 
@@ -160,7 +167,11 @@ def submit_video(
 
 
 @app.post("/video/terminate")
-def terminate_job(video_uuid: str, authenticated: bool = Depends(check_api_key)):
+def terminate_job(
+    video_uuid: str,
+    background_tasks: BackgroundTasks,
+    authenticated: bool = Depends(check_api_key),
+):
     db_client = NxsDbFactory.create_db(
         NxsDbType.MONGODB,
         uri=args.cosmosdb_conn_str,
@@ -177,18 +188,25 @@ def terminate_job(video_uuid: str, authenticated: bool = Depends(check_api_key))
             "non-existing video.",
         )
 
-    if results[0]["status"] in [RequestStatus.PENDING, RequestStatus.RUNNING]:
-        subprocess.run(["kubectl", "delete", "job", video_uuid])
-        db_client.update(
-            DB_TASKS_COLLECTION_NAME,
-            {
-                "video_uuid": video_uuid,
-                "zone": "global",
-            },
-            {"status": RequestStatus.STOPPED},
-        )
+    # if results[0]["status"] in [RequestStatus.PENDING, RequestStatus.RUNNING]:
+    subprocess.run(["kubectl", "delete", "job", video_uuid, "-n", "nxsapp"])
+    db_client.update(
+        DB_TASKS_COLLECTION_NAME,
+        {
+            "video_uuid": video_uuid,
+            "zone": "global",
+        },
+        {"status": RequestStatus.STOPPED},
+    )
+
+    pvc_name = f"pvc{video_uuid}".lower()
+    background_tasks.add_task(remove_pvc, pvc_name)
 
     return status.HTTP_200_OK
+
+
+def remove_pvc(pvc_name: str):
+    subprocess.run(["kubectl", "delete", "pvc", pvc_name, "-n", "nxsapp"])
 
 
 @app.get("/video", response_model=List[str])
@@ -368,4 +386,4 @@ def generate_blobstore_sas_url(account_name, container_name, blob_path, sas_toke
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=args.port, reload=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=args.port, reload=True)

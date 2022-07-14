@@ -500,7 +500,7 @@ class OfflineVehicleTrackingApp:
                 chunk_idx = int(chunk_name.replace(".ts", "").split("_")[-1])
                 chunk_url = f"{base_url}/{chunk_name}"
 
-                for _ in range(3):
+                for _ in range(5):
                     try:
                         data = requests.get(chunk_url, allow_redirects=True).content
                         chunk_path = f"{self.DATA_DIR}/chunk_{idx}"

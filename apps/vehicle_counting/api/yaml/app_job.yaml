@@ -22,6 +22,8 @@ spec:
         - name: kv-secrets-store
           mountPath: "/mnt/secrets-store"
           readOnly: true
+        - mountPath: "/data"
+          name: volume
         env:
         - name: VIDEO_UUID
           value: ""
@@ -32,6 +34,11 @@ spec:
             secretKeyRef:
               name: nxsappkv
               key: NXS_URL
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: API_KEY
         - name: NXS_API_KEY
           valueFrom:
             secretKeyRef:
@@ -84,3 +91,6 @@ spec:
           readOnly: true
           volumeAttributes:
             secretProviderClass: "nxsapp-kv-sync"
+      - name: volume
+        persistentVolumeClaim:
+          claimName: azure-managed-disk
