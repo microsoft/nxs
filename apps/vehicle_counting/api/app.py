@@ -81,6 +81,59 @@ async def check_api_key(api_key_header: str = Security(api_key_header)):
     return True
 
 
+@app.post("/jobs/clean")
+def clean_cluster(
+    background_tasks: BackgroundTasks,
+    authenticated: bool = Depends(check_api_key),
+):
+    background_tasks.add_task(clean_cluster_fn)
+
+    # set all tasks to stopped
+    db_client = NxsDbFactory.create_db(
+        NxsDbType.MONGODB,
+        uri=args.cosmosdb_conn_str,
+        db_name=args.cosmosdb_db_name,
+    )
+
+    results = db_client.query(
+        DB_TASKS_COLLECTION_NAME,
+        {"zone": "global", "status": RequestStatus.PENDING},
+        NxsDbQueryConfig(projection_list=["video_uuid"]),
+    )
+    for r in results:
+        video_uuid = r["video_uuid"]
+        db_client.update(
+            DB_TASKS_COLLECTION_NAME,
+            {
+                "video_uuid": video_uuid,
+                "zone": "global",
+            },
+            {"status": RequestStatus.STOPPED},
+        )
+
+    results = db_client.query(
+        DB_TASKS_COLLECTION_NAME,
+        {"zone": "global", "status": RequestStatus.RUNNING},
+        NxsDbQueryConfig(projection_list=["video_uuid"]),
+    )
+    for r in results:
+        video_uuid = r["video_uuid"]
+        db_client.update(
+            DB_TASKS_COLLECTION_NAME,
+            {
+                "video_uuid": video_uuid,
+                "zone": "global",
+            },
+            {"status": RequestStatus.STOPPED},
+        )
+
+
+def clean_cluster_fn():
+    cur_dir_abs_path = os.path.dirname(os.path.realpath(__file__))
+    cleanup_script_path = os.path.join(cur_dir_abs_path, "../scripts/clean_cluster.sh")
+    subprocess.run(["bash", cleanup_script_path])
+
+
 @app.post("/video", response_model=TrackingAppResponse)
 def submit_video(
     request: TrackingAppRequest, authenticated: bool = Depends(check_api_key)
