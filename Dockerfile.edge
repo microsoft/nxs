@@ -21,15 +21,15 @@ RUN cd redis-6.2.6 && make && make install
 #build tvm
 RUN cd /root && \
     git clone --recursive https://github.com/apache/tvm tvm && \
-    cd tvm && git checkout 4babd36481b7108bf50df5c3b256c95c0d9c3291 && \
+    cd tvm && git checkout 37f9d3c496bd32387f190ee31e4fa9bb525e7b85 && \
     git submodule init && \
     git submodule update && \
     mkdir build && \
     cp cmake/config.cmake build && \
     cd build && \
     sed -i 's/set(USE_CUDA OFF)/set(USE_CUDA \/usr\/local\/cuda)/g' config.cmake && \
+    sed -i 's/set(USE_OPENMP none)/set(USE_OPENMP gnu)/g' config.cmake && \
     sed -i 's/set(USE_CUDNN OFF)/set(USE_CUDNN ON)/g' config.cmake && \
-    sed -i 's/set(USE_OPENMP OFF)/set(USE_OPENMP intel)/g' config.cmake && \
     sed -i 's/set(USE_LLVM OFF)/set(USE_LLVM \/usr\/bin\/llvm-config-12)/g' config.cmake && \
     cmake .. && \
     make -j `nproc` && \
