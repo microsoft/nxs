@@ -7,6 +7,7 @@ from apps.vehicle_counting.app_types.app_request import (
 )
 from apps.vehicle_counting.worker.utils import *
 from nxs_libs.db import NxsDbFactory, NxsDbType
+from nxs_libs.storage import NxsStorageFactory, NxsStorageType
 
 DB_TASKS_COLLECTION_NAME = "tasks"
 DB_COUNTS_COLLECTION_NAME = "counts"
@@ -222,6 +223,17 @@ def main():
                 break
             except Exception as e:
                 time.sleep(30)
+
+    # upload logs
+    log_file = f"{args.video_uuid}.txt"
+    if os.path.exists(log_file):
+        storage_client = NxsStorageFactory.create_storage(
+            NxsStorageType.AzureBlobstorage,
+            connection_str=args.blobstore_conn_str,
+            container_name=args.blobstore_container,
+        )
+
+        storage_client.upload(log_file, STORAGE_LOGS_DIR_PATH, True)
 
     # signal api server to terminate this job
     nxsapp_api_key = os.environ["API_KEY"]
