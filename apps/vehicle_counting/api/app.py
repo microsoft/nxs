@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 import subprocess
 import uuid
@@ -170,6 +171,12 @@ def submit_video(
             "count_interval_secs should be at least 30.",
         )
 
+    if request.job_duration > 604800:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "job_duration should be at most 604800 secs.",
+        )
+
     db_client = NxsDbFactory.create_db(
         NxsDbType.MONGODB,
         uri=args.cosmosdb_conn_str,
@@ -195,9 +202,27 @@ def submit_video(
 
     pvc_name = f"pvc{video_uuid}".lower()
 
+    num_days = request.job_duration / 86400.0
+    storage_size = 7
+    if num_days <= 0.125:
+        storage_size = 7
+    elif num_days <= 0.25:
+        storage_size = 15
+    elif num_days <= 0.5:
+        storage_size = 31
+    elif num_days <= 1:
+        storage_size = 63
+    elif num_days <= 2:
+        storage_size = 127
+    elif num_days <= 4:
+        storage_size = 255
+    else:
+        storage_size = 511
+
     yaml_path = os.path.join(cur_dir_abs_path, f"yaml/pvc.yaml")
     yaml_data = yaml.safe_load(open(yaml_path))
     yaml_data["metadata"]["name"] = pvc_name
+    yaml_data["spec"]["resources"]["requests"]["storage"] = "{}Gi".format(storage_size)
 
     output_yaml_path = os.path.join(yaml_dir_path, f"pvc_{video_uuid}.yaml")
     with open(output_yaml_path, "w") as f:
