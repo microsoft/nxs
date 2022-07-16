@@ -155,6 +155,7 @@ class OfflineVehicleTrackingApp:
         with open(self.LOG_FILE, "a") as f:
             f.write("{} - {}".format(current_time, data))
             f.write("\n")
+            f.flush()
 
     def run_tracking(self):
         def process_frames(obj_id: int, frames: List[np.ndarray]):
@@ -200,6 +201,11 @@ class OfflineVehicleTrackingApp:
                 self.job_completed = True
                 self.report_counting(last_frame_ts)
                 self.to_exit_threads = True
+                self._append_log(
+                    "[Main_Thread] Processed {} secs of video.".format(
+                        self.job_duration
+                    )
+                )
                 break
 
             if is_end_of_video or self.job_completed:
@@ -207,6 +213,7 @@ class OfflineVehicleTrackingApp:
                 if last_frame_ts > 0:
                     self.report_counting(last_frame_ts)
                 self.to_exit_threads = True
+                self._append_log("[Main_Thread] Video was ended or job was completed.")
                 break
 
             if len(frames_timestamps) == 0:
@@ -348,7 +355,7 @@ class OfflineVehicleTrackingApp:
             self._append_log(f"Counts: {self.class_count_dicts}")
             self._append_log("")
 
-            if time.time() - last_updated_log_ts > 1800:
+            if time.time() - last_updated_log_ts > 900:
                 self._update_log_file()
                 last_updated_log_ts = time.time()
 
@@ -484,9 +491,17 @@ class OfflineVehicleTrackingApp:
                     time.sleep(5)
             except Exception as e:
                 self._append_log(str(e))
+                self._append_log(
+                    "[Download_Thread] Could not access {}. Retrying...".format(
+                        self.video_url
+                    )
+                )
                 time.sleep(5)
                 if retry == num_retries - 1:
                     self.video_ended = True
+                    self._append_log(
+                        "[Download_Thread] Could not access {}".format(self.video_url)
+                    )
 
         if chunk_names:
             return chunk_names
@@ -503,9 +518,17 @@ class OfflineVehicleTrackingApp:
                 break
             except Exception as e:
                 self._append_log(str(e))
+                self._append_log(
+                    "[Download_Thread] Could not access {}. Retrying...".format(
+                        chunklist_path
+                    )
+                )
                 time.sleep(5)
                 if retry == num_retries - 1:
                     self.video_ended = True
+                    self._append_log(
+                        "[Download_Thread] Could not access {}".format(chunklist_path)
+                    )
 
         return chunk_names
 
@@ -524,6 +547,11 @@ class OfflineVehicleTrackingApp:
         ):
             if time.time() - starting_ts > 1.1 * self.job_duration:
                 self.video_ended = True
+                self._append_log(
+                    "[Download_Thread] Downloaded over {} secs".format(
+                        1.1 * self.job_duration
+                    )
+                )
                 break
 
             chunk_names = self.get_chunk_names()
@@ -552,6 +580,11 @@ class OfflineVehicleTrackingApp:
                         break
                     except Exception as e:
                         self._append_log(str(e))
+                        self._append_log(
+                            "[Download_Thread] Could not access {}. Retrying...".format(
+                                chunk_url
+                            )
+                        )
                         time.sleep(1)
 
                 if len(last_downloaded) > 10:
@@ -578,10 +611,16 @@ class OfflineVehicleTrackingApp:
         while not self.to_exit_threads:
             if video_ts >= self.job_duration * 1000:
                 self.job_completed = True
+                self._append_log(
+                    "[Decode_Thread] Processed {} secs of video.".format(
+                        self.job_duration
+                    )
+                )
                 break
 
             if not self.downloaded_videos and self.video_ended:
                 # could not get any more frames
+                self._append_log("[Decode_Thread] Video was ended. No more chunks.")
                 break
 
             if not self.downloaded_videos:
@@ -596,11 +635,11 @@ class OfflineVehicleTrackingApp:
 
             # print(f"Decoding chunk {chunk_path}\n")
 
-            if last_chunk_idx > 0 and chunk_idx < last_chunk_idx:
-                delta = chunk_idx - last_chunk_idx - 1
-                if delta > 0:
-                    # some chunks are missing
-                    video_ts += delta * np.mean(chunk_lens) * 1000
+            # if last_chunk_idx > 0 and chunk_idx < last_chunk_idx:
+            #     delta = chunk_idx - last_chunk_idx - 1
+            #     if delta > 0:
+            #         # some chunks are missing
+            #         video_ts += delta * np.mean(chunk_lens) * 1000
 
             cap = cv2.VideoCapture(chunk_path)
 
@@ -671,7 +710,7 @@ class OfflineVehicleTrackingApp:
             for _ in range(len(self.video_frames)):
                 timestamps.append(self.video_frame_timestamps.pop(0))
                 images.append(self.video_frames.pop(0))
-            is_end_of_video = True
+            is_end_of_video = self.video_ended
         else:
             is_end_of_video = self.video_ended
 
