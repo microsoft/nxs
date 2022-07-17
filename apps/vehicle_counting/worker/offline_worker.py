@@ -533,7 +533,7 @@ class OfflineVehicleTrackingApp:
         return chunk_names
 
     def download_video_thread(self):
-        self._append_log("Download thread is started...")
+        self._append_log("[Download_Thread] Started...")
 
         base_url = self.video_url[: self.video_url.rindex("/")]
         last_downloaded = []
@@ -563,12 +563,13 @@ class OfflineVehicleTrackingApp:
             # chunk_names.sort()
 
             for chunk_name in chunk_names:
-                if chunk_name in last_downloaded:
-                    continue
-
                 # print(f"Downloading chunk {chunk_name}\n")
 
                 chunk_idx = int(chunk_name.replace(".ts", "").split("_")[-1])
+
+                if chunk_idx in last_downloaded:
+                    continue
+
                 chunk_url = f"{base_url}/{chunk_name}"
 
                 for _ in range(5):
@@ -590,17 +591,17 @@ class OfflineVehicleTrackingApp:
                 if len(last_downloaded) > 10:
                     last_downloaded.pop(0)
 
-                if chunk_name not in last_downloaded:
-                    last_downloaded.append(chunk_name)
+                if chunk_idx not in last_downloaded:
+                    last_downloaded.append(chunk_idx)
 
                 idx += 1
 
             time.sleep(3)
 
-        self._append_log("Download thread is stopped...")
+        self._append_log("[Download_Thread] Stopped...")
 
     def decode_video_thread(self):
-        self._append_log("Decode thread is started...")
+        self._append_log("[Decode_Thread] Started...")
 
         last_chunk_idx = -1
         frame_idx = 0
@@ -641,15 +642,33 @@ class OfflineVehicleTrackingApp:
             #         # some chunks are missing
             #         video_ts += delta * np.mean(chunk_lens) * 1000
 
+            if last_chunk_idx != -1:
+                delta = 0
+                if chunk_idx > last_chunk_idx:
+                    delta = chunk_idx - last_chunk_idx - 1
+                elif chunk_idx < last_chunk_idx:
+                    # chunk id was reset
+                    delta = max(0, chunk_idx - 1)
+
+                if delta > 0:
+                    # some chunks are missing
+                    missing_len_ms = delta * np.mean(chunk_lens) * 1000
+                    video_ts += missing_len_ms
+                    self._append_log(
+                        f"[Decode_Thread] Missing {delta} chunks. Last chunk idx is {last_chunk_idx}. Current chunk idx is {chunk_idx}. Skipping {missing_len_ms} ms"
+                    )
+
             cap = cv2.VideoCapture(chunk_path)
 
             fps = cap.get(cv2.CAP_PROP_FPS)
             if fps == 0:
                 fps = self.frame_rate
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            chunk_len = frame_count / fps
+            chunk_len = float(frame_count) / fps
             chunk_lens.append(chunk_len)
             frame_time = (1.0 / fps) * 1000
+
+            processed_ts = 0
 
             while True:
                 _, img = cap.read()  # BGR
@@ -657,12 +676,23 @@ class OfflineVehicleTrackingApp:
                     break
 
                 video_ts += frame_time
+                processed_ts += frame_time
+
                 if frame_idx % (self.skip_frame + 1) == 0:
                     self.video_frame_timestamps.append(video_ts)
                     self.video_frames.append(img)
 
                 frame_idx += 1
                 self.total_extracted_frames += 1
+
+            unprocessed_ts = chunk_len * 1000 - processed_ts
+            # if unprocessed_ts >= 1000:
+            #     self._append_log(
+            #         f"[Decode_Thread] Chunk {chunk_path} has {unprocessed_ts} ms unprocessed."
+            #     )
+
+            if unprocessed_ts > 0:
+                video_ts += unprocessed_ts
 
             cap.release()
 
@@ -673,7 +703,10 @@ class OfflineVehicleTrackingApp:
 
             last_chunk_idx = chunk_idx
 
-        self._append_log("Decode thread is stopped...")
+            if len(chunk_lens) > 100:
+                chunk_lens.pop(0)
+
+        self._append_log("[Decode_Thread] Stopped...")
 
     """
     def get_batch(self, batch_size):
