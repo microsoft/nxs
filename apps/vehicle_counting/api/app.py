@@ -43,6 +43,9 @@ parser.add_argument("--cosmosdb_conn_str", type=str, default="")
 parser.add_argument("--cosmosdb_db_name", type=str, default="")
 parser.add_argument("--api_key", type=str, default="")
 parser.add_argument("--worker_container", type=str, default="")
+parser.add_argument(
+    "--use_external_storage", default=False, type=lambda x: (str(x).lower() == "true")
+)
 args = parser.parse_args()
 
 args.blobstore_conn_str = os.environ["BLOBSTORE_CONN_STR"]
@@ -51,7 +54,9 @@ args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
 args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
 args.api_key = os.environ["API_KEY"]
 args.worker_container = os.environ["WORKER_CONTAINER"]
-
+args.use_external_storage = (
+    os.environ.get("USE_EXTERNAL_STORAGE", "false").lower() == "true"
+)
 
 DB_TASKS_COLLECTION_NAME = "tasks"
 DB_COUNTS_COLLECTION_NAME = "counts"
@@ -201,38 +206,43 @@ def submit_video(
         os.makedirs(yaml_dir_path)
 
     pvc_name = f"pvc{video_uuid}".lower()
-
-    num_days = request.job_duration / 86400.0
-    storage_size = 7
-    if num_days <= 0.125:
+    if args.use_external_storage:
+        num_days = request.job_duration / 86400.0
         storage_size = 7
-    elif num_days <= 0.25:
-        storage_size = 15
-    elif num_days <= 0.5:
-        storage_size = 31
-    elif num_days <= 1:
-        storage_size = 63
-    elif num_days <= 2:
-        storage_size = 127
-    elif num_days <= 4:
-        storage_size = 255
-    else:
-        storage_size = 511
+        if num_days <= 0.125:
+            storage_size = 7
+        elif num_days <= 0.25:
+            storage_size = 15
+        elif num_days <= 0.5:
+            storage_size = 31
+        elif num_days <= 1:
+            storage_size = 63
+        elif num_days <= 2:
+            storage_size = 127
+        elif num_days <= 4:
+            storage_size = 255
+        else:
+            storage_size = 511
 
-    yaml_path = os.path.join(cur_dir_abs_path, f"yaml/pvc.yaml")
-    yaml_data = yaml.safe_load(open(yaml_path))
-    yaml_data["metadata"]["name"] = pvc_name
-    yaml_data["spec"]["resources"]["requests"]["storage"] = "{}Gi".format(storage_size)
+        yaml_path = os.path.join(cur_dir_abs_path, f"yaml/pvc.yaml")
+        yaml_data = yaml.safe_load(open(yaml_path))
+        yaml_data["metadata"]["name"] = pvc_name
+        yaml_data["spec"]["resources"]["requests"]["storage"] = "{}Gi".format(
+            storage_size
+        )
 
-    output_yaml_path = os.path.join(yaml_dir_path, f"pvc_{video_uuid}.yaml")
-    with open(output_yaml_path, "w") as f:
-        yaml.dump(yaml_data, f)
+        output_yaml_path = os.path.join(yaml_dir_path, f"pvc_{video_uuid}.yaml")
+        with open(output_yaml_path, "w") as f:
+            yaml.dump(yaml_data, f)
 
-    subprocess.run(["kubectl", "apply", "-f", output_yaml_path])
-    os.remove(output_yaml_path)
+        subprocess.run(["kubectl", "apply", "-f", output_yaml_path])
+        os.remove(output_yaml_path)
 
     # '''
-    yaml_path = os.path.join(cur_dir_abs_path, f"yaml/app_job.yaml")
+    if args.use_external_storage:
+        yaml_path = os.path.join(cur_dir_abs_path, f"yaml/app_job.yaml")
+    else:
+        yaml_path = os.path.join(cur_dir_abs_path, f"yaml/app_job_nopvc.yaml")
     yaml_data = yaml.safe_load(open(yaml_path))
     yaml_data["metadata"]["name"] = f"{video_uuid}"
     yaml_data["spec"]["template"]["spec"]["containers"][0][
@@ -245,9 +255,10 @@ def submit_video(
         yaml_data["spec"]["template"]["spec"]["containers"][0]["env"][1][
             "value"
         ] = "true"
-    yaml_data["spec"]["template"]["spec"]["volumes"][1]["persistentVolumeClaim"][
-        "claimName"
-    ] = pvc_name
+    if args.use_external_storage:
+        yaml_data["spec"]["template"]["spec"]["volumes"][1]["persistentVolumeClaim"][
+            "claimName"
+        ] = pvc_name
 
     output_yaml_path = os.path.join(yaml_dir_path, f"{video_uuid}.yaml")
 
@@ -301,8 +312,9 @@ def terminate_job(
             {"status": RequestStatus.STOPPED},
         )
 
-    pvc_name = f"pvc{video_uuid}".lower()
-    background_tasks.add_task(remove_pvc, pvc_name)
+    if args.use_external_storage:
+        pvc_name = f"pvc{video_uuid}".lower()
+        background_tasks.add_task(remove_pvc, pvc_name)
 
     return status.HTTP_200_OK
 
