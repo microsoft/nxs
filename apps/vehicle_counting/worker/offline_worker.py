@@ -128,6 +128,7 @@ class OfflineVehicleTrackingApp:
 
         self.job_completed = False
         self.video_ended = False
+        self.decoder_stopped = False
         self.video_frames = []
         self.video_frame_timestamps = []
 
@@ -139,7 +140,7 @@ class OfflineVehicleTrackingApp:
         self.starting_utc_time = datetime.now(timezone.utc)
         self.starting_utc_ts = datetime.now(timezone.utc).timestamp()
 
-        self.downloaded_videos: List[Tuple[int, str]] = []
+        self.downloaded_videos: List[Tuple[int, str, float]] = []
 
         self.to_exit_threads = False
 
@@ -197,7 +198,7 @@ class OfflineVehicleTrackingApp:
                 self.WINDOW_LENGTH
             )
 
-            if last_frame_ts >= self.job_duration * 1000:
+            if last_frame_ts >= self.job_duration * 1000 or self.job_completed:
                 self.job_completed = True
                 self.report_counting(last_frame_ts)
                 self.to_exit_threads = True
@@ -208,7 +209,7 @@ class OfflineVehicleTrackingApp:
                 )
                 break
 
-            if is_end_of_video or self.job_completed:
+            if self.decoder_stopped and len(frames) == 0:
                 # we don't really need to track the last-window
                 if last_frame_ts > 0:
                     self.report_counting(last_frame_ts)
@@ -336,7 +337,9 @@ class OfflineVehicleTrackingApp:
             else:
                 hit_deadline += 1
 
-            miss_rate = float(miss_deadline) / (miss_deadline + hit_deadline)
+            if time.time() - last_updated_log_ts > self.counting_report_interval_secs:
+                self._update_log_file()
+                last_updated_log_ts = time.time()
 
             if count % 300 != 1:
                 continue
@@ -354,10 +357,6 @@ class OfflineVehicleTrackingApp:
             self._append_log(f"Avg latency: {avg_lat} secs")
             self._append_log(f"Counts: {self.class_count_dicts}")
             self._append_log("")
-
-            if time.time() - last_updated_log_ts > 900:
-                self._update_log_file()
-                last_updated_log_ts = time.time()
 
     def _update_log_file(self):
         storage_client = NxsStorageFactory.create_storage(
@@ -577,7 +576,9 @@ class OfflineVehicleTrackingApp:
                         data = requests.get(chunk_url, allow_redirects=True).content
                         chunk_path = f"{self.DATA_DIR}/chunk_{idx}"
                         open(chunk_path, "wb").write(data)
-                        self.downloaded_videos.append((chunk_idx, chunk_path))
+                        self.downloaded_videos.append(
+                            (chunk_idx, chunk_path, (time.time() - starting_ts) * 1000)
+                        )
                         break
                     except Exception as e:
                         self._append_log(str(e))
@@ -607,8 +608,9 @@ class OfflineVehicleTrackingApp:
         frame_idx = 0
         self.starting_utc_time = datetime.now(timezone.utc)
         self.starting_utc_ts = self.starting_utc_time.timestamp()
-        video_ts = 0
         chunk_lens = []  # in secs
+        video_ts = 0
+
         while not self.to_exit_threads:
             if video_ts >= self.job_duration * 1000:
                 self.job_completed = True
@@ -619,12 +621,12 @@ class OfflineVehicleTrackingApp:
                 )
                 break
 
-            if not self.downloaded_videos and self.video_ended:
+            if len(self.downloaded_videos) == 0 and self.video_ended:
                 # could not get any more frames
                 self._append_log("[Decode_Thread] Video was ended. No more chunks.")
                 break
 
-            if not self.downloaded_videos:
+            if len(self.downloaded_videos) == 0:
                 time.sleep(1)
                 continue
 
@@ -632,31 +634,7 @@ class OfflineVehicleTrackingApp:
                 time.sleep(1)
                 continue
 
-            chunk_idx, chunk_path = self.downloaded_videos.pop(0)
-
-            # print(f"Decoding chunk {chunk_path}\n")
-
-            # if last_chunk_idx > 0 and chunk_idx < last_chunk_idx:
-            #     delta = chunk_idx - last_chunk_idx - 1
-            #     if delta > 0:
-            #         # some chunks are missing
-            #         video_ts += delta * np.mean(chunk_lens) * 1000
-
-            if last_chunk_idx != -1:
-                delta = 0
-                if chunk_idx > last_chunk_idx:
-                    delta = chunk_idx - last_chunk_idx - 1
-                elif chunk_idx < last_chunk_idx:
-                    # chunk id was reset
-                    delta = max(0, chunk_idx - 1)
-
-                if delta > 0:
-                    # some chunks are missing
-                    missing_len_ms = delta * np.mean(chunk_lens) * 1000
-                    video_ts += missing_len_ms
-                    self._append_log(
-                        f"[Decode_Thread] Missing {delta} chunks. Last chunk idx is {last_chunk_idx}. Current chunk idx is {chunk_idx}. Skipping {missing_len_ms} ms"
-                    )
+            chunk_idx, chunk_path, video_ts = self.downloaded_videos.pop(0)
 
             cap = cv2.VideoCapture(chunk_path)
 
@@ -668,15 +646,12 @@ class OfflineVehicleTrackingApp:
             chunk_lens.append(chunk_len)
             frame_time = (1.0 / fps) * 1000
 
-            processed_ts = 0
-
             while True:
                 _, img = cap.read()  # BGR
                 if isinstance(img, type(None)):
                     break
 
                 video_ts += frame_time
-                processed_ts += frame_time
 
                 if frame_idx % (self.skip_frame + 1) == 0:
                     self.video_frame_timestamps.append(video_ts)
@@ -685,15 +660,6 @@ class OfflineVehicleTrackingApp:
                 frame_idx += 1
                 self.total_extracted_frames += 1
 
-            unprocessed_ts = chunk_len * 1000 - processed_ts
-            # if unprocessed_ts >= 1000:
-            #     self._append_log(
-            #         f"[Decode_Thread] Chunk {chunk_path} has {unprocessed_ts} ms unprocessed."
-            #     )
-
-            if unprocessed_ts > 0:
-                video_ts += unprocessed_ts
-
             cap.release()
 
             try:
@@ -701,10 +667,10 @@ class OfflineVehicleTrackingApp:
             except:
                 pass
 
-            last_chunk_idx = chunk_idx
-
             if len(chunk_lens) > 100:
                 chunk_lens.pop(0)
+
+        self.decoder_stopped = True
 
         self._append_log("[Decode_Thread] Stopped...")
 
