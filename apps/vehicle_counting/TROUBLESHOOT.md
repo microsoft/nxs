@@ -67,3 +67,6 @@ To access those two, go to your resource group. There should be two Key Vaults
     - Check if GPU VMs are on using */api/v2/tasks/monitoring/backend_deployments* API from NXS swagger page
     - If all the GPU VMs are on, then you can start using the service
 
+6. How to retrieve experiment log?
+    - Open VCAPP swagger page and trigger */video/log* API, it will return the url for you to download the log file.
+    - [Optional] Share the log file with NXS team for debugging purposes.
