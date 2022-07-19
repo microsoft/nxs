@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vc-worker
+  namespace: nxsapp
+spec:
+  template:
+    spec:
+      containers:
+      - name: vc-job
+        image: ossnxs.azurecr.io/vc_worker:v0.1.1
+        command: ["/bin/bash", "apps/vehicle_counting/scripts/run_worker.sh"]
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 1
+            memory: "2Gi"
+          limits:
+            cpu: 1.5
+            memory: "3Gi"
+        volumeMounts:
+        - name: kv-secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+        env:
+        - name: VIDEO_UUID
+          value: ""
+        - name: DEBUG
+          value: "false"
+        - name: NXS_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: NXS_URL
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: API_KEY
+        - name: NXS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: NXS_API_KEY
+        - name: COSMOSDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_CONNECTION_STR
+        - name: COSMOSDB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: MONGODB_MAINDB_NAME
+        - name: BLOBSTORE_CONN_STR
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONNECTION_STR
+        - name: BLOBSTORE_CONTAINER
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: BLOBSTORE_CONTAINER_NAME
+        - name: DETECTOR_UUID
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: NXS_DETECTOR_UUID
+        - name: TRACKER_UUID
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: NXS_TRACKER_UUID
+        - name: REPORT_INTERVAL_SECS
+          valueFrom:
+            secretKeyRef:
+              name: nxsappkv
+              key: APP_REPORT_COUNTS_INTERVAL
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Never
+      nodeSelector:
+        restype: cpu
+      volumes:
+      - name: kv-secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "nxsapp-kv-sync"
