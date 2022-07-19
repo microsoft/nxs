@@ -1,5 +1,13 @@
 # Troubleshooting
 
+In order to troubleshoot, you need to access NXS swagger page and the Vehicle Counting App (VCAPP) swagger page.
+
+To access those two, go to your resource group. There should be two Key Vaults
+- One start with "nxs-". Inside, go to Secrets, you can find *NxsSwaggerUrl* and the *ApiKey* secrets to use NXS swagger page
+- One start with "nxsapp-". Inside, go to Secrets, you can find *AppSwaggerUrl* and the *ApiKey* secrets to use VCAPP swagger page
+
+# Common Issues
+
 1. Error: "Request timeout"
 - Description: inference requests are staying in queue for more than 10 secs.
 - Solution: Open NXS swagger page and trigger */api/v2/tasks/backends/scale/gpu* API to add more gpus. 1 GPU per video is recommended. 
