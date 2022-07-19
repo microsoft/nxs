@@ -200,6 +200,7 @@ def main():
                 {"status": RequestStatus.FAILED, "error": "stream ended"},
             )
     except Exception as e:
+        has_error = True
         error_str = str(e)
 
     if has_error:

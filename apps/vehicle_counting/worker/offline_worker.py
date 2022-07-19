@@ -232,13 +232,18 @@ class OfflineVehicleTrackingApp:
             self.remove_out_of_rois_tracks()
             self.remove_expired_objects()
 
-            dets = run_detector(
-                self.nxs_infer_url,
-                self.detector_uuid,
-                frames[0],
-                self.nxs_api_key,
-                logging_fn=self._append_log,
-            ).detections
+            dets = []
+            try:
+                dets = run_detector(
+                    self.nxs_infer_url,
+                    self.detector_uuid,
+                    frames[0],
+                    self.nxs_api_key,
+                    logging_fn=self._append_log,
+                ).detections
+            except Exception as e:
+                self.to_exit_threads = True
+                raise e
             self.process_detections(frames[0], dets)
 
             tracking_args = []
@@ -253,8 +258,12 @@ class OfflineVehicleTrackingApp:
                     results.append(f)
                 executor.shutdown(wait=True)
 
-                for r in results:
-                    _ = r.result()
+                try:
+                    for r in results:
+                        _ = r.result()
+                except Exception as e:
+                    self.to_exit_threads = True
+                    raise e
 
             # count objects
             for frame_idx in range(len(frames)):
