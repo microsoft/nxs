@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import shutil
 import threading
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -64,6 +65,7 @@ class OfflineVehicleTrackingApp:
         counting_report_interval_secs: int = 30,
         visualize: bool = False,
         job_duration: int = 21600,
+        disk_usage_percentage_thresh: float = 80,
     ) -> None:
         self.video_uuid = video_uuid
         self.nxs_infer_url = nxs_infer_url
@@ -78,6 +80,7 @@ class OfflineVehicleTrackingApp:
         self.frame_rate = frame_rate
 
         self.job_duration = job_duration
+        self.disk_usage_percentage_thresh = disk_usage_percentage_thresh
 
         # self.cap = cv2.VideoCapture(video_url)
         # self.frame_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -561,6 +564,18 @@ class OfflineVehicleTrackingApp:
                     )
                 )
                 break
+
+            try:
+                disk_usage = shutil.disk_usage(self.DATA_DIR)
+                usage_percent = disk_usage.used / disk_usage.total * 100
+                if usage_percent > self.disk_usage_percentage_thresh:
+                    self._append_log(
+                        f"[Download_Thread] High disk usage: {usage_percent}"
+                    )
+                    self.video_ended = True
+                    break
+            except:
+                pass
 
             chunk_names = self.get_chunk_names()
 

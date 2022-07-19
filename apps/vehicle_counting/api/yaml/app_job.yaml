@@ -29,6 +29,8 @@ spec:
           value: ""
         - name: DEBUG
           value: "false"
+        - name: STORAGE_USAGE_PERCENTAGE_THRESH
+          value: "97.5"
         - name: NXS_URL
           valueFrom:
             secretKeyRef:

@@ -39,6 +39,7 @@ def main():
     parser.add_argument(
         "--debug", default=False, type=lambda x: (str(x).lower() == "true")
     )
+    parser.add_argument("--storage_usage_percentage_thresh", type=float, default=80.0)
     args = parser.parse_args()
 
     args.video_uuid = os.environ["VIDEO_UUID"]
@@ -48,6 +49,12 @@ def main():
     args.blobstore_container = os.environ["BLOBSTORE_CONTAINER"]
     args.cosmosdb_conn_str = os.environ["COSMOSDB_URL"]
     args.cosmosdb_db_name = os.environ["COSMOSDB_NAME"]
+    try:
+        args.storage_usage_percentage_thresh = float(
+            os.environ.get("STORAGE_USAGE_PERCENTAGE_THRESH", "80.0")
+        )
+    except:
+        args.storage_usage_percentage_thresh = 80.0
 
     has_error: bool = False
     error_str: str = ""
@@ -143,6 +150,7 @@ def main():
                 cosmosdb_db_name=args.cosmosdb_db_name,
                 counting_report_interval_secs=video_info.count_interval_secs,
                 job_duration=video_info.job_duration,
+                disk_usage_percentage_thresh=args.storage_usage_percentage_thresh,
             )
         else:
             from apps.vehicle_counting.worker.offline_worker import (
