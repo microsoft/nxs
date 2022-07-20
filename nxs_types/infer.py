@@ -1,6 +1,8 @@
-import numpy as np
 from enum import Enum
 from typing import Dict, List, Optional
+
+import numpy as np
+
 from nxs_types import DataModel
 
 
@@ -27,7 +29,7 @@ class NxsInferInputBase(DataModel):
     pipeline_uuid: str
     session_uuid: str = "global"
     extra_params: NxsInferExtraParams = NxsInferExtraParams()
-    infer_timeout: float = 10
+    infer_timeout: float = 60
 
 
 class NxsInferImageInputFromUrl(NxsInferInputBase):
