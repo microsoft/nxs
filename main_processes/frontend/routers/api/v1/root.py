@@ -1,22 +1,25 @@
 import json
 from multiprocessing.connection import wait
 from typing import List, Optional
-from configs import MONGODB_PIPELINES_COLLECTION_NAME
-from fastapi import APIRouter, Depends, HTTPException, Security
-from fastapi import File, UploadFile
+
 import fastapi
+from configs import MONGODB_PIPELINES_COLLECTION_NAME
+from fastapi import APIRouter, Depends, File, HTTPException, Security, UploadFile
 from fastapi.security import APIKeyHeader
 from main_processes.frontend.args import parse_args
+from main_processes.frontend.routers.api.v2.models.root import _register_w4_model
+from main_processes.frontend.routers.api.v2.tasks.root import _infer_single
 from main_processes.frontend.utils import get_db
 from nxs_types.infer import NxsInferStatus
 from nxs_types.infer_result import NxsInferResult, NxsInferResultType
 from nxs_types.model import DataModel, NxsW4ModelRegistrationRequest
-from main_processes.frontend.routers.api.v2.tasks.root import _infer_single
-from main_processes.frontend.routers.api.v2.models.root import _register_w4_model
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 args = parse_args()
 router = APIRouter(prefix="/v1")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
+
+setup_logger()
 
 
 class ModelRegistrationRequestv1(DataModel):
@@ -102,6 +105,7 @@ async def infer_from_file(
         # reconstruct v1 result
         return _reconstruct_v1_result(res)
     except Exception as e:
+        write_log("/v1/fromfile", "Exception: {}".format(str(e)), NxsLogLevel.DEBUG)
         return {"error": str(e)}
 
 
