@@ -298,7 +298,7 @@ async def submit_image_task(
         write_log(
             "/v2/images/infer-from-file",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
 
     extra_params = NxsInferExtraParams(**extra_params)
@@ -311,7 +311,7 @@ async def submit_image_task(
         write_log(
             "/v2/images/infer-from-file",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -373,7 +373,7 @@ async def process_image_task_from_url(
         write_log(
             "process_image_task_from_url",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -455,7 +455,7 @@ async def process_image_task_from_azure_blobstore(
         write_log(
             "process_image_task_from_azure_blobstore",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -486,7 +486,7 @@ async def submit_text_task(
         write_log(
             "/v2/texts/infer",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -518,7 +518,7 @@ async def submit_task_tensors(
             write_log(
                 "/v2/tensors/infer",
                 "Exception: {}".format(str(e)),
-                NxsLogLevel.DEBUG,
+                NxsLogLevel.INFO,
             )
 
             return NxsInferResult(
@@ -541,7 +541,7 @@ async def submit_task_tensors(
         write_log(
             "/v2/tensors/infer",
             "Exception: {}".format(error_msg),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
 
         return NxsInferResult(
@@ -559,7 +559,7 @@ async def submit_task_tensors(
         write_log(
             "/v2/tensors/infer",
             "Exception: {}".format(str(e)),
-            NxsLogLevel.DEBUG,
+            NxsLogLevel.INFO,
         )
 
         return NxsInferResult(

@@ -105,7 +105,7 @@ async def infer_from_file(
         # reconstruct v1 result
         return _reconstruct_v1_result(res)
     except Exception as e:
-        write_log("/v1/fromfile", "Exception: {}".format(str(e)), NxsLogLevel.DEBUG)
+        write_log("/v1/fromfile", "Exception: {}".format(str(e)), NxsLogLevel.INFO)
         return {"error": str(e)}
 
 
