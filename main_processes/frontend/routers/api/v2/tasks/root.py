@@ -286,7 +286,7 @@ async def submit_image_task(
     session_uuid: str = "global",
     file: UploadFile = File(...),
     extra_params_json_str: str = '{"preproc": {}, "postproc": {}, "transform": {}}',
-    infer_timeout: float = 10,
+    infer_timeout: float = 60,
     authenticated: bool = Depends(check_api_key),
 ):
     image_bin = await file.read()
