@@ -72,12 +72,16 @@ from nxs_types.message import (
 )
 from nxs_types.model import *
 from nxs_utils.common import *
+from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 from nxs_utils.nxs_helper import *
 
 # setup global variables
 args = parse_args()
 router = APIRouter(prefix="/tasks")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
+
+setup_logger()
+
 task_summary_processor = SimpleFrontendTaskSummaryProcessor()
 
 pipeline_cache: Dict[str, NxsPipelineInfo] = {}
@@ -290,8 +294,12 @@ async def submit_image_task(
     extra_params = {}
     try:
         extra_params = json.loads(extra_params_json_str)
-    except:
-        pass
+    except Exception as e:
+        write_log(
+            "/v2/images/infer-from-file",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
 
     extra_params = NxsInferExtraParams(**extra_params)
 
@@ -300,6 +308,11 @@ async def submit_image_task(
             image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
         )
     except Exception as e:
+        write_log(
+            "/v2/images/infer-from-file",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
@@ -357,6 +370,11 @@ async def process_image_task_from_url(
             image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
         )
     except Exception as e:
+        write_log(
+            "process_image_task_from_url",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
@@ -434,6 +452,11 @@ async def process_image_task_from_azure_blobstore(
             image_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
         )
     except Exception as e:
+        write_log(
+            "process_image_task_from_azure_blobstore",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
@@ -460,6 +483,11 @@ async def submit_text_task(
             infer_info.infer_timeout,
         )
     except Exception as e:
+        write_log(
+            "/v2/texts/infer",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
@@ -481,11 +509,17 @@ async def submit_task_tensors(
     if isinstance(infer_request, Dict):
         try:
             infer_request = NxsTensorsInferRequest(**infer_request)
-        except:
+        except Exception as e:
             # raise HTTPException(
             #     status.HTTP_400_BAD_REQUEST,
             #     "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
             # )
+
+            write_log(
+                "/v2/tensors/infer",
+                "Exception: {}".format(str(e)),
+                NxsLogLevel.INFO,
+            )
 
             return NxsInferResult(
                 type=NxsInferResultType.CUSTOM,
@@ -502,13 +536,19 @@ async def submit_task_tensors(
         #     "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict.",
         # )
 
+        error_msg = "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict."
+
+        write_log(
+            "/v2/tensors/infer",
+            "Exception: {}".format(error_msg),
+            NxsLogLevel.INFO,
+        )
+
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
             task_uuid="",
-            error_msgs=[
-                "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict."
-            ],
+            error_msgs=[error_msg],
         )
     else:
         infer_request: NxsTensorsInferRequest = infer_request
@@ -516,7 +556,12 @@ async def submit_task_tensors(
     try:
         res = await _infer_tensors(infer_request)
     except Exception as e:
-        # raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+        write_log(
+            "/v2/tensors/infer",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
             status=NxsInferStatus.FAILED,
