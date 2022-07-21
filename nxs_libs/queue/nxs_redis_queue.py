@@ -1,11 +1,12 @@
-import time
 import pickle
-import numpy as np
+import time
 from threading import Thread
-from typing import Any, List, Dict
+from typing import Any, Dict, List
+
+import numpy as np
 from nxs_libs.queue import NxsQueuePuller, NxsQueuePusher
+from nxs_utils.logging import NxsLogLevel, write_log
 from nxs_utils.nxs_helper import init_redis_client
-from nxs_utils.logging import write_log, NxsLogLevel
 
 
 class NxsRedisQueuePuller(NxsQueuePuller):
@@ -116,6 +117,11 @@ class NxsRedisQueuePuller(NxsQueuePuller):
         self._log(f"Read thread {thread_id} was created for topic {topic} !!!")
         # print(f"Read thread {thread_id} was created for topic {topic} !!!")
 
+        # reader thread should use its own client
+        client = init_redis_client(
+            self._address, self._port, self._password, self._is_using_ssl
+        )
+
         while self._reader_thread_alive_flags[thread_id]:
             # standby if buffer is full
             if len(self._buf) >= self._buf_size:
@@ -123,7 +129,7 @@ class NxsRedisQueuePuller(NxsQueuePuller):
                 continue
 
             try:
-                data = self._client.blpop([topic], timeout=self._max_timeout_secs)
+                data = client.blpop([topic], timeout=self._max_timeout_secs)
                 if data is None:
                     time.sleep(0.001)
                     continue
@@ -133,6 +139,9 @@ class NxsRedisQueuePuller(NxsQueuePuller):
                 self._buf.append(d)
             except:
                 time.sleep(0.01)
+                client = init_redis_client(
+                    self._address, self._port, self._password, self._is_using_ssl
+                )
 
         self._log(
             f"Reader thread {thread_id} / {self._num_partitions} is being terminated!!!"
