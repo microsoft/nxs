@@ -334,6 +334,7 @@ class NxsRedisQueuePusher(NxsQueuePusher):
         self._set_with_retry(topic, pickle.dumps(self._new_topic_num_partitions))
         self._topic2partitions[topic] = self._new_topic_num_partitions
         self._topic2timestamp[topic] = time.time()
+        self._topic2partitionIdx[topic] = 0
 
     def push(self, topic: str, data):
         if (not topic in self._topic2timestamp) or (
