@@ -1,11 +1,11 @@
+import json
 import logging
 import pickle
 import time
-import json
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict
 
+import numpy as np
 import requests
 from configs import GLOBAL_QUEUE_NAMES, NXS_CONFIG
 from nxs_libs.interface.backend.dispatcher import (
@@ -16,23 +16,18 @@ from nxs_libs.interface.backend.input import (
     BackendInputInterface,
     BackendInputInterfaceFactory,
 )
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
 from nxs_libs.queue import NxsQueuePusherFactory, NxsQueueType
 from nxs_types.infer import NxsInferRequest
 from nxs_types.log import NxsBackendCmodelThroughputLog
-from nxs_types.model import (
-    ModelInput,
-    NxsModel,
-)
+from nxs_types.model import ModelInput, NxsModel
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 from nxs_utils.nxs_helper import create_queue_pusher_from_args
 
 
-class BackendInputProcess(ABC):
+class BackendInternalInputProcess(ABC):
     def __init__(
         self,
         args: NxsBackendArgs,

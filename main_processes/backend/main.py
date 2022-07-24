@@ -13,8 +13,11 @@ from configs import *
 from lru import LRU
 from main_processes.backend.batcher_process import BackendBatcherProcess
 from main_processes.backend.compute_process_onnx import BackendComputeProcessOnnx
-from main_processes.backend.input_process import BackendInputProcess
-from main_processes.backend.input_process_basic import BackendBasicInputProcess
+from main_processes.backend.input_process_basic import (
+    BackendBasicExternalInputProcess,
+    BackendBasicInternalInputProcess,
+)
+from main_processes.backend.input_process_v2 import BackendExternalInputProcess
 from main_processes.backend.output_process import (
     BackendBasicOutputProcess,
     BackendOutputProcess,
@@ -257,7 +260,7 @@ class NxsBackendBaseProcess(ABC):
 
             for cmodel_uuid in self.infer_runtime_map:
                 infer_rt = self.infer_runtime_map[cmodel_uuid]
-                input_process: BackendInputProcess = infer_rt.processes[0]
+                input_process: BackendExternalInputProcess = infer_rt.processes[0]
 
                 mini_dispatcher_data = []
                 for _ in range(len(input_process.global_dispatcher_output_shared_list)):
@@ -274,7 +277,7 @@ class NxsBackendBaseProcess(ABC):
             for data in output_data:
                 cmodel_uuid = data.cmodel_uuid
                 infer_rt = self.infer_runtime_map[cmodel_uuid]
-                input_process: BackendInputProcess = infer_rt.processes[0]
+                input_process: BackendExternalInputProcess = infer_rt.processes[0]
                 input_process.global_dispatcher_input_shared_list.append(data.data)
 
             # report stats to scheduler if needed
@@ -326,7 +329,7 @@ class NxsBackendBaseProcess(ABC):
             if cmodel_uuid not in self.infer_runtime_map:
                 continue
 
-            first_input_process: BackendInputProcess = self.infer_runtime_map[
+            first_input_process: BackendExternalInputProcess = self.infer_runtime_map[
                 cmodel_uuid
             ].processes[0]
             for to_undeploy_session_uuid in cmodel_plan.session_uuid_list:
@@ -368,9 +371,9 @@ class NxsBackendBaseProcess(ABC):
         ):
             if cmodel_plan.model_uuid in self.infer_runtime_map:
                 # model is running
-                first_input_process: BackendInputProcess = self.infer_runtime_map[
-                    cmodel_plan.model_uuid
-                ].processes[0]
+                first_input_process: BackendExternalInputProcess = (
+                    self.infer_runtime_map[cmodel_plan.model_uuid].processes[0]
+                )
                 for session_uuid in cmodel_plan.session_uuid_list:
                     if session_uuid in first_input_process.input_interface_args_dict:
                         continue
@@ -577,27 +580,50 @@ class NxsBackendBaseProcess(ABC):
                 stop_preprocessors_flag = Value("i", False)
                 stop_flags.append(stop_preprocessors_flag)
 
-                input_process = BackendBasicInputProcess(
-                    args=self.args,
-                    component_model=component_model,
-                    component_model_plan=component_model_plan,
-                    preprocessing_fn_path=component_preprocessing_paths[idx],
-                    input_interface_args_dict=input_interface_args_dict,
-                    output_interface_args=input_process_output_interface_args,
-                    dispatcher_args=dispatcher_args,
-                    stop_flag=stop_input_flag,
-                    next_process_stop_flag=stop_preprocessors_flag,
-                    dispatcher_update_shared_list=dispatcher_update_shared_list
-                    if idx == 0
-                    else None,
-                    global_dispatcher_input_shared_list=global_dispatcher_input_shared_list
-                    if idx == 0
-                    else None,
-                    global_dispatcher_output_shared_list=global_dispatcher_output_shared_list
-                    if idx == 0
-                    else None,
-                    process_update_shared_list=mp_manager.list(),
-                )
+                if idx == 0:
+                    input_process = BackendBasicExternalInputProcess(
+                        args=self.args,
+                        component_model=component_model,
+                        component_model_plan=component_model_plan,
+                        preprocessing_fn_path=component_preprocessing_paths[idx],
+                        input_interface_args_dict=input_interface_args_dict,
+                        output_interface_args=input_process_output_interface_args,
+                        dispatcher_args=dispatcher_args,
+                        stop_flag=stop_input_flag,
+                        next_process_stop_flag=stop_preprocessors_flag,
+                        dispatcher_update_shared_list=dispatcher_update_shared_list
+                        if idx == 0
+                        else None,
+                        global_dispatcher_input_shared_list=global_dispatcher_input_shared_list
+                        if idx == 0
+                        else None,
+                        global_dispatcher_output_shared_list=global_dispatcher_output_shared_list
+                        if idx == 0
+                        else None,
+                        process_update_shared_list=mp_manager.list(),
+                    )
+                else:
+                    input_process = BackendBasicInternalInputProcess(
+                        args=self.args,
+                        component_model=component_model,
+                        component_model_plan=component_model_plan,
+                        preprocessing_fn_path=component_preprocessing_paths[idx],
+                        input_interface_args_dict=input_interface_args_dict,
+                        output_interface_args=input_process_output_interface_args,
+                        dispatcher_args=dispatcher_args,
+                        stop_flag=stop_input_flag,
+                        next_process_stop_flag=stop_preprocessors_flag,
+                        dispatcher_update_shared_list=dispatcher_update_shared_list
+                        if idx == 0
+                        else None,
+                        global_dispatcher_input_shared_list=global_dispatcher_input_shared_list
+                        if idx == 0
+                        else None,
+                        global_dispatcher_output_shared_list=global_dispatcher_output_shared_list
+                        if idx == 0
+                        else None,
+                        process_update_shared_list=mp_manager.list(),
+                    )
 
                 # create preprocessors
                 preprocessors_process_input_interface_args = {
