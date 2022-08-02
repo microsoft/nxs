@@ -1,20 +1,17 @@
+import copy
+import json
 import logging
 import os
 import pickle
 import time
-import json
-import cv2
-import copy
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict, List
+
+import cv2
+import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
-from nxs_libs.interface.backend.input import (
-    BackendInputInterfaceFactory,
-)
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
+from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
 from nxs_types.infer import (
     NxsInferInput,
     NxsInferInputType,
@@ -191,9 +188,12 @@ class BackendOutputProcess(ABC):
 
                 result = {}
                 try:
-                    result = self.postproc_fn(
-                        data, postproc_params, self.component_model, metadata
-                    )
+                    if not self.component_model.is_arbitrary_model:
+                        result = self.postproc_fn(
+                            data, postproc_params, self.component_model, metadata
+                        )
+                    else:
+                        result = data
                 except Exception as ex:
                     metadata[
                         BACKEND_INTERNAL_CONFIG.TASK_STATUS
