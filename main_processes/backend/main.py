@@ -34,6 +34,7 @@ from nxs_types.message import *
 from nxs_types.model import Framework, NxsCompositoryModel, NxsModel
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import (
+    NxsSchedulingPerComponentModelPlan,
     NxsSchedulingPerCompositorymodelPlan,
     NxsUnschedulingPerCompositoryPlan,
 )
@@ -226,7 +227,8 @@ class NxsBackendBaseProcess(ABC):
                             print(f"Removed model {model_uuid}")
                     elif msg.type == NxsMsgType.SCHEDULE_PLAN:
                         self.global_dispatcher_lock.acquire()
-                        self._process_scheduling_plan(msg.plan, manager)
+                        # self._process_scheduling_plan(msg.plan, manager)
+                        self._process_scheduling_plan_v2(msg.plan, manager)
                         self.global_dispatcher_lock.release()
                     elif msg.type == NxsMsgType.UNSCHEDULE_PLAN:
                         self.global_dispatcher_lock.acquire()
@@ -480,7 +482,10 @@ class NxsBackendBaseProcess(ABC):
                 if (
                     component_model.model_desc.transforming_name is not None
                     and component_model.model_desc.transforming_name.lower()
-                    not in ["", "none"]
+                    not in [
+                        "",
+                        "none",
+                    ]
                 ):
                     # print(
                     #     f"transforming/{component_model.model_desc.transforming_name}.py"
@@ -831,6 +836,741 @@ class NxsBackendBaseProcess(ABC):
             self.infer_runtime_map[cmodel.main_model.model_uuid] = infer_runtime_info
 
             self._log(f"Deployed cmodel {cmodel_plan.model_uuid}")
+
+    def _process_scheduling_plan_v2(
+        self, plan: NxsSchedulingPerBackendPlan, mp_manager: SyncManager
+    ):
+        for cmodel_plan, duty_cycle in zip(
+            plan.compository_model_plans, plan.duty_cyles
+        ):
+            self._deploy_compository_model_plan(mp_manager, cmodel_plan, duty_cycle)
+
+    def _deploy_compository_model_plan(
+        self,
+        mp_manager: SyncManager,
+        cmodel_plan: NxsSchedulingPerCompositorymodelPlan,
+        duty_cycle: float,
+    ):
+        if cmodel_plan.model_uuid in self.infer_runtime_map:
+            # model is running
+            first_input_process: BackendInputProcess = self.infer_runtime_map[
+                cmodel_plan.model_uuid
+            ].processes[0]
+
+            # update session list if needed
+            for session_uuid in cmodel_plan.session_uuid_list:
+                if session_uuid in first_input_process.input_interface_args_dict:
+                    continue
+
+                existing_session_uuid = list(
+                    first_input_process.input_interface_args_dict.keys()
+                )[0]
+                input_interface_args = copy.deepcopy(
+                    first_input_process.input_interface_args_dict[existing_session_uuid]
+                )
+                input_interface_args["session_uuid"] = session_uuid
+                first_input_process.add_session(input_interface_args)
+
+            return
+
+        cmodel = self._get_compository_model_from_plan(cmodel_plan)
+
+        component_model_paths = []
+        component_preprocessing_paths = []
+        component_transforming_paths = []
+        component_postprocessing_paths = []
+        component_processes = []
+
+        # download model from cache
+        self._log(
+            f"Downloading models and processing functions for cmodel {cmodel_plan.model_uuid} ..."
+        )
+
+        for component_model in cmodel.component_models:
+            if not component_model.is_arbitrary_model:
+                (
+                    component_model_path,
+                    preproc_path,
+                    postproc_path,
+                    transform_path,
+                ) = self._download_pipelined_component_model(component_model)
+            else:
+                (
+                    component_model_path,
+                    preproc_path,
+                    postproc_path,
+                    transform_path,
+                ) = self._download_arbitrary_component_model(component_model)
+
+            component_model_paths.append(component_model_path)
+            component_preprocessing_paths.append(preproc_path)
+            component_postprocessing_paths.append(postproc_path)
+            component_transforming_paths.append(transform_path)
+
+            if component_model.is_arbitrary_model and component_model_path == "":
+                # could not unzip arbitrary model:
+                # TODO: report back to scheduler
+                return
+
+        self._log(
+            f"Downloaded models and processing functions for cmodel {cmodel_plan.model_uuid}"
+        )
+
+        shared_queues = []
+        stop_flags = []
+        allow_inference_flags = []
+
+        # launch processes to run component models
+        dispatcher_update_shared_list = mp_manager.list()
+        global_dispatcher_input_shared_list = mp_manager.list()
+        global_dispatcher_output_shared_list = mp_manager.list()
+
+        self._log(f"Creating processes for cmodel {cmodel_plan.model_uuid} ...")
+
+        for model_idx in range(len(cmodel.component_models)):
+            component_model = cmodel.component_models[model_idx]
+            component_model_plan = cmodel_plan.component_model_plans[model_idx]
+
+            if not component_model.is_arbitrary_model:
+                self._deploy_pipelined_component_model(
+                    mp_manager,
+                    model_idx,
+                    len(cmodel.component_models),
+                    component_model,
+                    component_model_plan,
+                    cmodel_plan.session_uuid_list,
+                    shared_queues,
+                    stop_flags,
+                    allow_inference_flags,
+                    component_model_paths,
+                    component_preprocessing_paths,
+                    component_postprocessing_paths,
+                    component_transforming_paths,
+                    component_processes,
+                    dispatcher_update_shared_list,
+                    global_dispatcher_input_shared_list,
+                    global_dispatcher_output_shared_list,
+                )
+            else:
+                self._deploy_arbitrary_component_model(
+                    mp_manager,
+                    model_idx,
+                    len(cmodel.component_models),
+                    component_model,
+                    component_model_plan,
+                    cmodel_plan.session_uuid_list,
+                    shared_queues,
+                    stop_flags,
+                    allow_inference_flags,
+                    component_model_paths,
+                    component_preprocessing_paths,
+                    component_postprocessing_paths,
+                    component_transforming_paths,
+                    component_processes,
+                    dispatcher_update_shared_list,
+                    global_dispatcher_input_shared_list,
+                    global_dispatcher_output_shared_list,
+                )
+
+        self._log(f"Lauching processes for cmodel {cmodel_plan.model_uuid} ...")
+        # start all processes
+        for p in component_processes:
+            p.run()
+        self._log(f"Launched processes for cmodel {cmodel_plan.model_uuid}")
+
+        infer_runtime_info = InferRuntimeInfo(
+            cmodel,
+            cmodel_plan,
+            cmodel_plan.session_uuid_list,
+            component_processes,
+            stop_flags,
+            allow_inference_flags,
+            shared_queues,
+        )
+        self.infer_runtime_map[cmodel.main_model.model_uuid] = infer_runtime_info
+
+        self._log(f"Deployed cmodel {cmodel_plan.model_uuid}")
+
+    def _deploy_pipelined_component_model(
+        self,
+        mp_manager: SyncManager,
+        model_idx: int,
+        num_component_models: int,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        session_uuid_list: List[str],
+        shared_queues: List,
+        stop_flags: List,
+        allow_inference_flags: List,
+        component_model_paths: List,
+        component_preprocessing_paths: List,
+        component_postprocessing_paths: List,
+        component_transforming_paths: List,
+        component_processes: List,
+        dispatcher_update_shared_list,
+        global_dispatcher_input_shared_list,
+        global_dispatcher_output_shared_list,
+    ):
+        # create shared_output_queue as shortcut for failed requests
+        shared_output_queue = multiprocessing.Queue()
+
+        # create input_inf for input_process
+        input_process = self._deploy_input_process(
+            mp_manager,
+            model_idx,
+            component_model,
+            component_model_plan,
+            session_uuid_list,
+            shared_queues,
+            stop_flags,
+            component_preprocessing_paths,
+            dispatcher_update_shared_list,
+            global_dispatcher_input_shared_list,
+            global_dispatcher_output_shared_list,
+        )
+
+        (
+            preprocessor_processes,
+            compute_input_queues,
+            stop_compute_flags,
+        ) = self._deploy_pipelined_preproc_process(
+            component_model,
+            component_model_plan,
+            shared_queues,
+            stop_flags,
+            shared_output_queue,
+            component_preprocessing_paths[model_idx],
+        )
+
+        compute_process = self._deploy_pipelined_compute_process(
+            component_model,
+            component_model_plan,
+            shared_queues,
+            stop_flags,
+            shared_output_queue,
+            compute_input_queues,
+            stop_compute_flags,
+            allow_inference_flags,
+            component_model_paths[model_idx],
+            component_transforming_paths[model_idx],
+        )
+
+        output_processes = self._deploy_output_process(
+            model_idx,
+            num_component_models,
+            component_model,
+            component_model_plan,
+            shared_queues,
+            stop_flags,
+            shared_output_queue,
+            dispatcher_update_shared_list,
+            component_postprocessing_paths[model_idx],
+        )
+
+        component_processes.append(input_process)
+        for p in preprocessor_processes:
+            component_processes.append(p)
+        # component_processes.append(batcher_process)
+        component_processes.append(compute_process)
+        # component_processes.append(output_process)
+        for p in output_processes:
+            component_processes.append(p)
+
+        return component_processes
+
+    def _deploy_arbitrary_component_model(
+        self,
+        mp_manager: SyncManager,
+        model_idx: int,
+        num_component_models: int,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        session_uuid_list: List[str],
+        shared_queues: List,
+        stop_flags: List,
+        allow_inference_flags: List,
+        component_model_paths: List,
+        component_preprocessing_paths: List,
+        component_postprocessing_paths: List,
+        component_transforming_paths: List,
+        component_processes: List,
+        dispatcher_update_shared_list,
+        global_dispatcher_input_shared_list,
+        global_dispatcher_output_shared_list,
+    ):
+        # create shared_output_queue as shortcut for failed requests
+        shared_output_queue = multiprocessing.Queue()
+
+        # create input_inf for input_process
+        input_process = self._deploy_input_process(
+            mp_manager,
+            model_idx,
+            component_model,
+            component_model_plan,
+            session_uuid_list,
+            shared_queues,
+            stop_flags,
+            component_preprocessing_paths,
+            dispatcher_update_shared_list,
+            global_dispatcher_input_shared_list,
+            global_dispatcher_output_shared_list,
+        )
+
+        model_process = self._deploy_arbitrary_model_process(
+            component_model,
+            component_model_plan,
+            shared_queues,
+            stop_flags,
+            shared_output_queue,
+            component_model_paths[model_idx],
+        )
+
+        output_processes = self._deploy_output_process(
+            model_idx,
+            num_component_models,
+            component_model,
+            component_model_plan,
+            shared_queues,
+            stop_flags,
+            shared_output_queue,
+            dispatcher_update_shared_list,
+            component_postprocessing_paths[model_idx],
+        )
+
+        component_processes.append(input_process)
+        component_processes.append(model_process)
+        for p in output_processes:
+            component_processes.append(p)
+
+        return component_processes
+
+    def _deploy_input_process(
+        self,
+        mp_manager: SyncManager,
+        model_idx: int,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        session_uuid_list: List[str],
+        shared_queues: List,
+        stop_flags: List,
+        component_preprocessing_paths: List,
+        dispatcher_update_shared_list: List,
+        global_dispatcher_input_shared_list: List,
+        global_dispatcher_output_shared_list: List,
+    ):
+        # create input_inf for input_process
+        if model_idx == 0:
+            input_process_input_interface_args = {
+                "type": BackendInputInterfaceType.REDIS,
+                "address": self.args.job_redis_queue_address,
+                "port": self.args.job_redis_queue_port,
+                "password": self.args.job_redis_queue_password,
+                "is_using_ssl": self.args.job_redis_queue_use_ssl,
+                "topic": component_model.model_uuid,
+            }
+            input_interface_args_dict = {}
+            for session_uuid in session_uuid_list:
+                _input_process_input_interface_args = copy.deepcopy(
+                    input_process_input_interface_args
+                )
+                # FIXME: find better way to set session_uuid input for queue
+                _input_process_input_interface_args["session_uuid"] = session_uuid
+                input_interface_args_dict[
+                    session_uuid
+                ] = _input_process_input_interface_args
+        else:
+            input_process_input_interface_args = {
+                "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+                "mp_queue": shared_queues[-1],
+            }
+            input_interface_args_dict = {"global": input_process_input_interface_args}
+
+        # create output_inf for input_process
+        shared_queue = multiprocessing.Queue()
+        shared_queues.append(shared_queue)
+        input_process_output_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_queues[-1],
+        }
+
+        # create dispatcher for input_process
+        if model_idx == 0:
+            dispatcher_args = {"type": BackendDispatcherType.BASIC_MONITORING}
+        else:
+            dispatcher_args = None
+
+        if model_idx == 0:
+            stop_input_flag = Value("i", False)
+            stop_flags.append(stop_input_flag)
+        else:
+            stop_input_flag = stop_flags[-1]
+
+        stop_preprocessors_flag = Value("i", False)
+        stop_flags.append(stop_preprocessors_flag)
+
+        input_process = BackendBasicInputProcess(
+            args=self.args,
+            component_model=component_model,
+            component_model_plan=component_model_plan,
+            preprocessing_fn_path=component_preprocessing_paths[model_idx],
+            input_interface_args_dict=input_interface_args_dict,
+            output_interface_args=input_process_output_interface_args,
+            dispatcher_args=dispatcher_args,
+            stop_flag=stop_input_flag,
+            next_process_stop_flag=stop_preprocessors_flag,
+            dispatcher_update_shared_list=dispatcher_update_shared_list
+            if model_idx == 0
+            else None,
+            global_dispatcher_input_shared_list=global_dispatcher_input_shared_list
+            if model_idx == 0
+            else None,
+            global_dispatcher_output_shared_list=global_dispatcher_output_shared_list
+            if model_idx == 0
+            else None,
+            process_update_shared_list=mp_manager.list(),
+        )
+
+        return input_process
+
+    def _deploy_pipelined_preproc_process(
+        self,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        shared_queues: List,
+        stop_flags: List,
+        shared_output_queue,
+        preprocessing_fn_path,
+    ):
+        stop_preprocessors_flag = stop_flags[-1]
+
+        # create preprocessors
+        preprocessors_process_input_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_queues[-1],
+        }
+
+        stop_compute_flags = []
+        compute_input_queues = []
+
+        preprocessor_processes = []
+        for pid in range(component_model.num_preprocessors):
+            shared_queue = multiprocessing.Queue()
+            shared_queues.append(shared_queue)
+            preprocessors_process_output_interface_args = {
+                "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+                "mp_queue": shared_queues[-1],
+            }
+            error_output_interface_args = {
+                "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+                "mp_queue": shared_output_queue,
+            }
+
+            stop_compute_flag = Value("i", False)
+            stop_flags.append(stop_compute_flag)
+
+            p = BackendPreprocessingProcess(
+                args=None,
+                component_model=component_model,
+                component_model_plan=component_model_plan,
+                pid=pid,
+                preprocessing_fn_path=preprocessing_fn_path,
+                input_interface_args=preprocessors_process_input_interface_args,
+                output_interface_args=preprocessors_process_output_interface_args,
+                error_shortcut_interface_args=error_output_interface_args,
+                stop_flag=stop_preprocessors_flag,
+                next_process_stop_flag=stop_compute_flag,
+            )
+            preprocessor_processes.append(p)
+
+            stop_compute_flags.append(stop_compute_flag)
+            compute_input_queues.append(shared_queue)
+
+        return preprocessor_processes, compute_input_queues, stop_compute_flags
+
+    def _deploy_pipelined_compute_process(
+        self,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        shared_queues: List,
+        stop_flags: List,
+        shared_output_queue,
+        compute_input_queues: List,
+        stop_compute_flags: List,
+        allow_inference_flags: List,
+        model_path: str,
+        transform_path: str,
+    ):
+        compute_process_input_interface_args_list = []
+        for compute_input_queue in compute_input_queues:
+            compute_process_input_interface_args = {
+                "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+                "mp_queue": compute_input_queue,
+            }
+            compute_process_input_interface_args_list.append(
+                compute_process_input_interface_args
+            )
+
+        shared_queues.append(shared_output_queue)
+        compute_process_output_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_output_queue,
+        }
+
+        backend_compute_process_cls = self._get_compute_process_cls(
+            component_model.framework
+        )
+
+        allow_inference_flag = Value("i", True)
+        allow_inference_flags.append(allow_inference_flag)
+
+        stop_output_flag = Value("i", False)
+        stop_flags.append(stop_output_flag)
+
+        compute_process = backend_compute_process_cls(
+            args=None,
+            component_model=component_model,
+            component_model_plan=component_model_plan,
+            model_path=model_path,
+            use_gpu=self.use_gpu,
+            transforming_fn_path=transform_path,
+            input_interface_args_list=compute_process_input_interface_args_list,
+            output_interface_args=compute_process_output_interface_args,
+            allow_infer_flag=allow_inference_flag,
+            stop_flags=stop_compute_flags,
+            next_process_stop_flag=stop_output_flag,
+        )
+
+        return compute_process
+
+    def _deploy_arbitrary_model_process(
+        self,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        shared_queues: List,
+        stop_flags: List,
+        shared_output_queue,
+        model_dir_path: str,
+    ):
+        stop_arbitrary_model_flag = stop_flags[-1]
+
+        # create input_inf for output_process
+        process_input_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_queues[-1],
+        }
+
+        shared_queues.append(shared_output_queue)
+        process_output_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_output_queue,
+        }
+
+        stop_output_flag = Value("i", False)
+        stop_flags.append(stop_output_flag)
+
+        from main_processes.backend.arbitrary_model_process import (
+            BackendArbitraryModelProcess,
+        )
+
+        _process = BackendArbitraryModelProcess(
+            args=None,
+            component_model=component_model,
+            component_model_plan=component_model_plan,
+            model_def_path=model_dir_path,
+            input_interface_args=process_input_interface_args,
+            output_interface_args=process_output_interface_args,
+            stop_flag=stop_arbitrary_model_flag,
+            next_process_stop_flag=stop_output_flag,
+        )
+
+        return _process
+
+    def _deploy_output_process(
+        self,
+        model_idx: int,
+        num_component_models: int,
+        component_model: NxsModel,
+        component_model_plan: NxsSchedulingPerComponentModelPlan,
+        shared_queues: List,
+        stop_flags: List,
+        shared_output_queue,
+        dispatcher_update_shared_list: List,
+        postproc_path: str,
+    ):
+        stop_output_flag = stop_flags[-1]
+
+        # create input_inf for output_process
+        output_process_input_interface_args = {
+            "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+            "mp_queue": shared_output_queue,
+        }
+
+        # create output_inf for output_process
+        if model_idx < num_component_models - 1:
+            shared_queue = multiprocessing.Queue()
+            shared_queues.append(shared_queue)
+            output_process_output_interface_args = {
+                "type": BackendInputInterfaceType.MULTIPROCESSING_QUEUE,
+                "mp_queue": shared_queues[-1],
+            }
+        else:
+            # end of this pipeline
+            output_process_output_interface_args = {
+                "type": BackendInputInterfaceType.REDIS,
+                "address": self.args.job_redis_queue_address,
+                "port": self.args.job_redis_queue_port,
+                "password": self.args.job_redis_queue_password,
+                "is_using_ssl": self.args.job_redis_queue_use_ssl,
+            }
+
+        next_process_stop_flag = None
+        if model_idx < num_component_models - 1:
+            next_process_stop_flag = Value("i", False)
+            stop_flags.append(next_process_stop_flag)
+
+        output_processes = []
+        for pid in range(component_model.num_postprocessors):
+            output_process = BackendBasicOutputProcess(
+                args=None,
+                component_model=component_model,
+                component_model_plan=component_model_plan,
+                pid=pid,
+                postprocessing_fn_path=postproc_path,
+                input_interface_args=output_process_input_interface_args,
+                output_interface_args=output_process_output_interface_args,
+                stop_flag=stop_output_flag,
+                next_process_stop_flag=next_process_stop_flag,
+                dispatcher_update_shared_list=None
+                if model_idx < num_component_models - 1
+                else dispatcher_update_shared_list,
+            )
+            output_processes.append(output_process)
+
+        return output_processes
+
+    def _get_compute_process_cls(self, framework: Framework):
+        backend_compute_process_cls = BackendComputeProcessOnnx
+        if framework == Framework.TVM:
+            from main_processes.backend.compute_process_tvm import (
+                BackendComputeProcessTvm,
+            )
+
+            backend_compute_process_cls = BackendComputeProcessTvm
+        if framework == Framework.BATCHED_TVM:
+            from main_processes.backend.compute_process_batched_tvm import (
+                BackendComputeProcessBatchedTvm,
+            )
+
+            backend_compute_process_cls = BackendComputeProcessBatchedTvm
+        elif framework == Framework.TF_PB:
+            from main_processes.backend.compute_process_tf import (
+                BackendComputeProcessTfv1,
+            )
+
+            backend_compute_process_cls = BackendComputeProcessTfv1
+
+        return backend_compute_process_cls
+
+    def _download_pipelined_component_model(self, component_model: NxsModel):
+        dir_abs_path = os.path.dirname(os.path.realpath(__file__))
+        component_model_dir_path = os.path.join(
+            dir_abs_path, component_model.model_uuid
+        )
+        create_dir_if_needed(component_model_dir_path)
+
+        cached_component_model_path = self.model_store_cache.get_model_path(
+            component_model.model_uuid
+        )
+
+        is_zip_file = zipfile.is_zipfile(cached_component_model_path)
+
+        # extract the zip file to model dir path
+        if is_zip_file:
+            shutil.unpack_archive(
+                cached_component_model_path,
+                component_model_dir_path,
+                format="zip",
+            )
+
+        # copy cached model into new location
+        component_model_path = os.path.join(component_model_dir_path, f"model.onnx")
+        if component_model.framework == Framework.ONNX:
+            component_model_path = os.path.join(component_model_dir_path, f"model.onnx")
+        elif component_model.framework == Framework.TVM:
+            component_model_path = os.path.join(component_model_dir_path, f"model.so")
+        elif component_model.framework == Framework.BATCHED_TVM:
+            component_model_path = component_model_dir_path
+        elif component_model.framework == Framework.TF_PB:
+            component_model_path = os.path.join(component_model_dir_path, f"model.pb")
+
+        if not is_zip_file:
+            shutil.copy(cached_component_model_path, component_model_path)
+
+        preproc_data = self.storage.download(
+            f"preprocessing/{component_model.model_desc.preprocessing_name}.py"
+        )
+        postproc_data = self.storage.download(
+            f"postprocessing/{component_model.model_desc.postprocessing_name}.py"
+        )
+
+        preproc_path = os.path.join(component_model_dir_path, "preprocessing.py")
+        with open(preproc_path, "wb") as f:
+            f.write(preproc_data)
+
+        postproc_path = os.path.join(component_model_dir_path, "postprocessing.py")
+        with open(postproc_path, "wb") as f:
+            f.write(postproc_data)
+
+        transform_path = ""
+        if (
+            component_model.model_desc.transforming_name is not None
+            and component_model.model_desc.transforming_name.lower()
+            not in [
+                "",
+                "none",
+            ]
+        ):
+            transforming_data = self.storage.download(
+                f"transforming/{component_model.model_desc.transforming_name}.py"
+            )
+            transform_path = os.path.join(component_model_dir_path, "transforming.py")
+            with open(transform_path, "wb") as f:
+                f.write(transforming_data)
+
+        return component_model_path, preproc_path, postproc_path, transform_path
+
+    def _download_arbitrary_component_model(self, component_model: NxsModel):
+        dir_abs_path = os.path.dirname(os.path.realpath(__file__))
+        component_model_dir_path = os.path.join(
+            dir_abs_path, component_model.model_uuid
+        )
+        create_dir_if_needed(component_model_dir_path)
+
+        cached_component_model_path = self.model_store_cache.get_model_path(
+            component_model.model_uuid
+        )
+
+        is_zip_file = zipfile.is_zipfile(cached_component_model_path)
+
+        # extract the zip file to model dir path
+        if is_zip_file:
+            shutil.unpack_archive(
+                cached_component_model_path,
+                component_model_dir_path,
+                format="zip",
+            )
+        else:
+            # arbitrary model should be in zip format
+            component_model_dir_path = ""
+            logging.critical(
+                f"{component_model.model_uuid}: Arbitrary model should be in zip format."
+            )
+
+        preproc_path = ""
+        postproc_path = ""
+        transform_path = ""
+
+        return component_model_dir_path, preproc_path, postproc_path, transform_path
 
     def _get_compository_model_from_plan(
         self, cmodel_plan: NxsSchedulingPerCompositorymodelPlan

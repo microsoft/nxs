@@ -27,11 +27,9 @@ class BackendArbitraryModelProcess:
         args: NxsBackendArgs,
         component_model: NxsModel,
         component_model_plan: NxsSchedulingPerComponentModelPlan,
-        pid: int,
-        funcs_path: str,
+        model_def_path: str,
         input_interface_args: Dict,
         output_interface_args: Dict,
-        error_shortcut_interface_args: Dict,
         stop_flag,
         next_process_stop_flag,
         extra_params: Dict = {},
@@ -40,12 +38,10 @@ class BackendArbitraryModelProcess:
         self.component_model_plan = component_model_plan
         self.input_interface_args = input_interface_args
         self.output_interface_args = output_interface_args
-        self.error_shortcut_interface_args = error_shortcut_interface_args
         self.stop_flag = stop_flag
         self.next_process_stop_flag = next_process_stop_flag
         self.extra_params = extra_params
-        self.funcs_path = funcs_path
-        self.pid = pid
+        self.model_def_path = model_def_path
 
         self.p = None
         self.init_fn = None
@@ -53,7 +49,7 @@ class BackendArbitraryModelProcess:
         self.preproc_extra_params = {}
         self.postproc_extra_params = {}
 
-        self.log_prefix = "{}_E2E_{}".format(component_model.model_uuid, pid)
+        self.log_prefix = "{}_E2E".format(component_model.model_uuid)
         self.next_topic_name = "{}_OUTPUT".format(component_model.model_uuid)
 
         setup_logger()
@@ -116,7 +112,7 @@ class BackendArbitraryModelProcess:
             for request in requests:
                 data: NxsInferRequest = request
 
-                metadata = {}
+                metadata = {"extra": {}}
                 self.request_entering(metadata["extra"])
 
                 user_metadata = NxsInferRequestMetadata(
@@ -215,9 +211,25 @@ class BackendArbitraryModelProcess:
                     preprocs.append(current_preproc_params_batch.pop(0))
                     postprocs.append(current_postproc_params_batch.pop(0))
 
-                infer_outputs = self.infer_fn(
-                    self.model_dict, batches, preprocs, postprocs, metadatas
-                )
+                try:
+                    infer_outputs = self.infer_fn(
+                        self.model_dict, batches, preprocs, postprocs, metadatas
+                    )
+                except Exception as e:
+                    infer_outputs = []
+                    for i in range(len(batches)):
+                        infer_outputs.append({})
+                        metadata = metadatas[i]
+                        metadata[
+                            BACKEND_INTERNAL_CONFIG.TASK_STATUS
+                        ] = NxsInferStatus.FAILED
+                        error_msgs = metadata.get(
+                            BACKEND_INTERNAL_CONFIG.TASK_ERROR_MSGS, []
+                        )
+                        error_msgs.append(
+                            f"{self.component_model.model_uuid}: Failed to run batch: {str(e)}"
+                        )
+                        metadata[BACKEND_INTERNAL_CONFIG.TASK_ERROR_MSGS] = error_msgs
 
                 for infer_output, metadata in zip(infer_outputs, metadatas):
                     self.output.put_batch(
@@ -227,7 +239,6 @@ class BackendArbitraryModelProcess:
             if time.time() - tt0 > 5:
                 if requests_count > 0:
                     fps = requests_count / (time.time() - tt0)
-                    # print(f"preprocessor_{self.pid}", "fps", fps)
                     self._log(f"FPS: {fps}")
 
                 errors_count = 0
@@ -246,16 +257,36 @@ class BackendArbitraryModelProcess:
         self._log("Exiting...")
 
     def request_entering(self, extra_metadata: Dict):
-        pass
+        if self.component_model.model_uuid not in extra_metadata:
+            extra_metadata[self.component_model.model_uuid] = {}
+
+        if "input_t0" not in extra_metadata:
+            extra_metadata["input_t0"] = time.time()
+
+        extra_metadata[self.component_model.model_uuid] = {}
+        extra_metadata[self.component_model.model_uuid]["input_t0"] = time.time()
+
+        if "preprocessing_t0" not in extra_metadata:
+            extra_metadata["preprocessing_t0"] = time.time()
+
+        extra_metadata[self.component_model.model_uuid] = {}
+        extra_metadata[self.component_model.model_uuid][
+            "preprocessing_t0"
+        ] = time.time()
 
     def request_exiting(self, extra_metadata: Dict):
-        pass
+        input_t0 = extra_metadata[self.component_model.model_uuid].pop("input_t0")
+        extra_metadata[self.component_model.model_uuid]["input_lat"] = (
+            time.time() - input_t0
+        )
 
     def _load_funcs(self):
         import importlib
 
+        nxs_model_path = os.path.join(self.model_def_path, "nxs_arbitrary_model.py")
+
         module_name = "nxs_fn"
-        spec = importlib.util.spec_from_file_location(module_name, self.funcs_path)
+        spec = importlib.util.spec_from_file_location(module_name, nxs_model_path)
         funcs_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(funcs_module)
 
@@ -277,7 +308,7 @@ class BackendArbitraryModelProcess:
         except:
             pass
 
-        self._log(f"Loaded funcs from {self.funcs_path}")
+        self._log(f"Loaded funcs from {nxs_model_path}")
 
     def stop(self):
         self.stop_flag.value = True

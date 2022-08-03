@@ -101,7 +101,8 @@ class BackendOutputProcess(ABC):
     def _run(self):
 
         # load post-processing fn
-        self._load_postprocessing_fn()
+        if not self.component_model.is_arbitrary_model:
+            self._load_postprocessing_fn()
 
         self.input = BackendInputInterfaceFactory.create_input_interface(
             **self.input_interface_args
@@ -188,12 +189,13 @@ class BackendOutputProcess(ABC):
 
                 result = {}
                 try:
-                    if not self.component_model.is_arbitrary_model:
+                    if self.postproc_fn is not None:
                         result = self.postproc_fn(
                             data, postproc_params, self.component_model, metadata
                         )
                     else:
-                        result = data
+                        if data is not None:
+                            result = data
                 except Exception as ex:
                     metadata[
                         BACKEND_INTERNAL_CONFIG.TASK_STATUS
