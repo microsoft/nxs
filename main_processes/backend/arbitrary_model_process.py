@@ -13,6 +13,7 @@ import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
 from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
 from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
+from nxs_libs.interface.model import NxsBaseArbitraryModel
 from nxs_types.infer import NxsInferInputType, NxsInferRequest, NxsInferRequestMetadata
 from nxs_types.infer_result import NxsInferStatus
 from nxs_types.model import ModelInput, NxsModel
@@ -44,8 +45,9 @@ class BackendArbitraryModelProcess:
         self.model_def_path = model_def_path
 
         self.p = None
-        self.init_fn = None
-        self.infer_fn = None
+        # self.init_fn = None
+        # self.infer_fn = None
+        self.model_instance = None
         self.preproc_extra_params = {}
         self.postproc_extra_params = {}
 
@@ -64,7 +66,13 @@ class BackendArbitraryModelProcess:
         self.p.start()
 
     def _run(self):
-        self._load_funcs()
+        # self._load_funcs()
+        try:
+            self.model_instance: NxsBaseArbitraryModel = self._create_model_instance()
+            self.model_instance.init(self.component_model)
+        except Exception as e:
+            self.model_instance = None
+            print(e)
 
         cross_requests_batching = self.component_model.cross_requests_batching
         max_batch_size = self.component_model_plan.batch_size
@@ -97,7 +105,7 @@ class BackendArbitraryModelProcess:
         current_postproc_params_batch = []
 
         # initialize the model
-        self.model_dict: Dict = self.init_fn(self.component_model)
+        # self.model_dict: Dict = self.init_fn(self.component_model)
 
         while True:
             requests = []
@@ -212,8 +220,11 @@ class BackendArbitraryModelProcess:
                     postprocs.append(current_postproc_params_batch.pop(0))
 
                 try:
-                    infer_outputs = self.infer_fn(
-                        self.model_dict, batches, preprocs, postprocs, metadatas
+                    # infer_outputs = self.infer_fn(
+                    #     self.model_dict, batches, preprocs, postprocs, metadatas
+                    # )
+                    infer_outputs = self.model_instance.infer(
+                        batches, preprocs, postprocs, metadatas
                     )
                 except Exception as e:
                     infer_outputs = []
@@ -253,6 +264,9 @@ class BackendArbitraryModelProcess:
 
         # trigger next process to stop
         self.next_process_stop_flag.value = True
+
+        if self.model_instance is not None:
+            self.model_instance.cleanup()
 
         self._log("Exiting...")
 
@@ -309,6 +323,30 @@ class BackendArbitraryModelProcess:
             pass
 
         self._log(f"Loaded funcs from {nxs_model_path}")
+
+    def _create_model_instance(self, **kwargs) -> NxsBaseArbitraryModel:
+        import importlib
+        import inspect
+
+        module_name = "nxs_arbitrary_model"
+        module_path = "nxs_arbitrary_model.py"
+        class_name = "NxsArbitraryModel"
+        spec = importlib.util.spec_from_file_location(
+            module_name, os.path.join(self.model_def_path, module_path)
+        )
+        _module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_module)
+
+        model_inst = None
+        clsmembers = inspect.getmembers(_module, inspect.isclass)
+        for clsmember in clsmembers:
+            name, cls_def = clsmember
+            if name == class_name:
+                model_inst = cls_def(**kwargs)
+
+        assert model_inst is not None
+
+        return model_inst
 
     def stop(self):
         self.stop_flag.value = True
