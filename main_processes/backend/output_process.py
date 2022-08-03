@@ -101,7 +101,7 @@ class BackendOutputProcess(ABC):
     def _run(self):
 
         # load post-processing fn
-        if not self.component_model.is_arbitrary_model:
+        if not self.component_model.is_custom_model:
             self._load_postprocessing_fn()
 
         self.input = BackendInputInterfaceFactory.create_input_interface(

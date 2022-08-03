@@ -4,7 +4,7 @@ from typing import Dict, List
 from nxs_types.model import NxsModel
 
 
-class NxsBaseArbitraryModel(ABC):
+class NxsBaseCustomModel(ABC):
     def __init__(self) -> None:
         super().__init__()
 

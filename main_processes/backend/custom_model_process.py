@@ -13,7 +13,7 @@ import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
 from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
 from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
-from nxs_libs.interface.model import NxsBaseArbitraryModel
+from nxs_libs.interface.model import NxsBaseCustomModel
 from nxs_types.infer import NxsInferInputType, NxsInferRequest, NxsInferRequestMetadata
 from nxs_types.infer_result import NxsInferStatus
 from nxs_types.model import ModelInput, NxsModel
@@ -22,7 +22,7 @@ from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
-class BackendArbitraryModelProcess:
+class BackendCustomModelProcess:
     def __init__(
         self,
         args: NxsBackendArgs,
@@ -66,9 +66,8 @@ class BackendArbitraryModelProcess:
         self.p.start()
 
     def _run(self):
-        # self._load_funcs()
         try:
-            self.model_instance: NxsBaseArbitraryModel = self._create_model_instance()
+            self.model_instance: NxsBaseCustomModel = self._create_model_instance()
             self.model_instance.init(self.component_model)
         except Exception as e:
             self.model_instance = None
@@ -294,43 +293,13 @@ class BackendArbitraryModelProcess:
             time.time() - input_t0
         )
 
-    def _load_funcs(self):
-        import importlib
-
-        nxs_model_path = os.path.join(self.model_def_path, "nxs_arbitrary_model.py")
-
-        module_name = "nxs_fn"
-        spec = importlib.util.spec_from_file_location(module_name, nxs_model_path)
-        funcs_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(funcs_module)
-
-        self.init_fn = funcs_module.init
-        self.infer_fn = funcs_module.infer
-
-        # load extra params if available
-        try:
-            self.preproc_extra_params = json.loads(
-                self.component_model.model_desc.extra_preprocessing_metadata
-            )
-        except:
-            pass
-
-        try:
-            self.postproc_extra_params = json.loads(
-                self.component_model.model_desc.extra_postprocessing_metadata
-            )
-        except:
-            pass
-
-        self._log(f"Loaded funcs from {nxs_model_path}")
-
-    def _create_model_instance(self, **kwargs) -> NxsBaseArbitraryModel:
+    def _create_model_instance(self, **kwargs) -> NxsBaseCustomModel:
         import importlib
         import inspect
 
-        module_name = "nxs_arbitrary_model"
-        module_path = "nxs_arbitrary_model.py"
-        class_name = "NxsArbitraryModel"
+        module_name = "nxs_custom_model"
+        module_path = "nxs_custom_model.py"
+        class_name = "NxsCustomModel"
         spec = importlib.util.spec_from_file_location(
             module_name, os.path.join(self.model_def_path, module_path)
         )

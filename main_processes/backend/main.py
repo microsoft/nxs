@@ -887,7 +887,7 @@ class NxsBackendBaseProcess(ABC):
         )
 
         for component_model in cmodel.component_models:
-            if not component_model.is_arbitrary_model:
+            if not component_model.is_custom_model:
                 (
                     component_model_path,
                     preproc_path,
@@ -907,7 +907,7 @@ class NxsBackendBaseProcess(ABC):
             component_postprocessing_paths.append(postproc_path)
             component_transforming_paths.append(transform_path)
 
-            if component_model.is_arbitrary_model and component_model_path == "":
+            if component_model.is_custom_model and component_model_path == "":
                 # could not unzip arbitrary model:
                 # TODO: report back to scheduler
                 return
@@ -931,7 +931,7 @@ class NxsBackendBaseProcess(ABC):
             component_model = cmodel.component_models[model_idx]
             component_model_plan = cmodel_plan.component_model_plans[model_idx]
 
-            if not component_model.is_arbitrary_model:
+            if not component_model.is_custom_model:
                 self._deploy_pipelined_component_model(
                     mp_manager,
                     model_idx,
@@ -1368,11 +1368,11 @@ class NxsBackendBaseProcess(ABC):
         stop_output_flag = Value("i", False)
         stop_flags.append(stop_output_flag)
 
-        from main_processes.backend.arbitrary_model_process import (
-            BackendArbitraryModelProcess,
+        from main_processes.backend.custom_model_process import (
+            BackendCustomModelProcess,
         )
 
-        _process = BackendArbitraryModelProcess(
+        _process = BackendCustomModelProcess(
             args=None,
             component_model=component_model,
             component_model_plan=component_model_plan,
