@@ -257,27 +257,34 @@ class NxsBackendBaseProcess(ABC):
 
             self.global_dispatcher_lock.acquire()
 
-            for cmodel_uuid in self.infer_runtime_map:
-                infer_rt = self.infer_runtime_map[cmodel_uuid]
-                input_process: BackendInputProcess = infer_rt.processes[0]
+            try:
+                for cmodel_uuid in self.infer_runtime_map:
+                    infer_rt = self.infer_runtime_map[cmodel_uuid]
+                    input_process: BackendInputProcess = infer_rt.processes[0]
 
-                mini_dispatcher_data = []
-                for _ in range(len(input_process.global_dispatcher_output_shared_list)):
-                    mini_dispatcher_data.append(
-                        input_process.global_dispatcher_output_shared_list.pop(0)
+                    mini_dispatcher_data = []
+                    for _ in range(
+                        len(input_process.global_dispatcher_output_shared_list)
+                    ):
+                        mini_dispatcher_data.append(
+                            input_process.global_dispatcher_output_shared_list.pop(0)
+                        )
+
+                    self.global_dispatcher.update_minidispatcher_stats(
+                        MiniDispatcherInputData(cmodel_uuid, mini_dispatcher_data)
                     )
 
-                self.global_dispatcher.update_minidispatcher_stats(
-                    MiniDispatcherInputData(cmodel_uuid, mini_dispatcher_data)
-                )
+                output_data = self.global_dispatcher.generate_minidispatcher_updates()
 
-            output_data = self.global_dispatcher.generate_minidispatcher_updates()
+                for data in output_data:
+                    cmodel_uuid = data.cmodel_uuid
+                    infer_rt = self.infer_runtime_map[cmodel_uuid]
+                    input_process: BackendInputProcess = infer_rt.processes[0]
+                    input_process.global_dispatcher_input_shared_list.append(data.data)
+            except Exception as e:
+                self._log(f"GLOBAL_DISPATCHER_EXCEPTION: {str(e)}")
 
-            for data in output_data:
-                cmodel_uuid = data.cmodel_uuid
-                infer_rt = self.infer_runtime_map[cmodel_uuid]
-                input_process: BackendInputProcess = infer_rt.processes[0]
-                input_process.global_dispatcher_input_shared_list.append(data.data)
+            self.global_dispatcher_lock.release()
 
             # report stats to scheduler if needed
             if (
@@ -296,11 +303,13 @@ class NxsBackendBaseProcess(ABC):
                 )
                 t1 = time.time()
 
-            self.global_dispatcher_lock.release()
-
             # update log
             if time.time() - upload_logs_t0 >= 5:
-                logs = self.global_dispatcher.generate_backend_monitoring_log()
+                logs = []
+                try:
+                    logs = self.global_dispatcher.generate_backend_monitoring_log()
+                except Exception as e:
+                    print(e)
 
                 try:
                     log_pusher.push(
@@ -340,9 +349,13 @@ class NxsBackendBaseProcess(ABC):
             infer_runtime = self.infer_runtime_map[cmodel_uuid]
             infer_runtime.stop_flags[0].value = True
 
+            # wait few seconds to process all pending requests
+            time.sleep(3)
+
             self._log(f"Stopping processes - model {cmodel_uuid}")
             for pid, process in enumerate(infer_runtime.processes):
-                process.stop()
+                # process.stop()
+                process.terminate()
             self._log(f"Stopped processes - model {cmodel_uuid}")
 
             for component_model in self.infer_runtime_map[
