@@ -320,3 +320,9 @@ class BackendCustomModelProcess:
     def stop(self):
         self.stop_flag.value = True
         self.p.join()
+
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass

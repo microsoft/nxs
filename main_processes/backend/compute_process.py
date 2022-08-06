@@ -1,23 +1,22 @@
+import copy
+import json
 import logging
 import os
 import time
-import json
-import copy
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict, List
+
+import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
-from nxs_types.infer import NxsInferRequestMetadata
-from nxs_types.nxs_args import NxsBackendArgs
-from nxs_types.model import NxsModel
-from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_libs.interface.backend.input import (
     BackendInputInterface,
     BackendInputInterfaceFactory,
 )
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
+from nxs_types.infer import NxsInferRequestMetadata
+from nxs_types.model import NxsModel
+from nxs_types.nxs_args import NxsBackendArgs
+from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
 
 
@@ -377,6 +376,12 @@ class BackendComputeProcess(ABC):
 
     def stop(self):
         self.p.join()
+
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass
 
     @abstractmethod
     def _load_model(self) -> None:

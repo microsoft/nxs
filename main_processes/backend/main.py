@@ -353,9 +353,11 @@ class NxsBackendBaseProcess(ABC):
             time.sleep(3)
 
             self._log(f"Stopping processes - model {cmodel_uuid}")
+            # for pid, process in enumerate(infer_runtime.processes):
+            #     process.stop()
             for pid, process in enumerate(infer_runtime.processes):
-                # process.stop()
                 process.terminate()
+
             self._log(f"Stopped processes - model {cmodel_uuid}")
 
             for component_model in self.infer_runtime_map[

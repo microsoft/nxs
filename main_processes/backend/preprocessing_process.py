@@ -1,30 +1,20 @@
+import copy
+import json
 import logging
 import os
 import pickle
 import time
-import json
-import cv2
-import copy
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict, List
+
+import cv2
+import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
-from nxs_libs.interface.backend.input import (
-    BackendInputInterfaceFactory,
-)
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
-from nxs_types.infer import (
-    NxsInferInputType,
-    NxsInferRequest,
-    NxsInferRequestMetadata,
-)
+from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
+from nxs_types.infer import NxsInferInputType, NxsInferRequest, NxsInferRequestMetadata
 from nxs_types.infer_result import NxsInferStatus
-from nxs_types.model import (
-    ModelInput,
-    NxsModel,
-)
+from nxs_types.model import ModelInput, NxsModel
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
@@ -375,6 +365,12 @@ class BackendPreprocessingProcess:
     def stop(self):
         self.stop_flag.value = True
         self.p.join()
+
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass
 
     def request_entering(self, extra_metadata: Dict):
         if "preprocessing_t0" not in extra_metadata:

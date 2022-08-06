@@ -454,6 +454,12 @@ class BackendOutputProcess(ABC):
     def stop(self):
         self.p.join()
 
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass
+
     @abstractmethod
     def request_entering(self, extra_metadata: Dict):
         raise NotImplementedError

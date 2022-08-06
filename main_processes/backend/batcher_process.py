@@ -1,24 +1,19 @@
+import copy
+import json
 import logging
 import os
 import pickle
 import time
-import json
-import cv2
-import copy
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict
+
+import cv2
+import numpy as np
 from configs import NXS_CONFIG
-from nxs_libs.interface.backend.input import (
-    BackendInputInterfaceFactory,
-)
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
+from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
 from nxs_types.infer_result import NxsInferStatus
-from nxs_types.model import (
-    NxsModel,
-)
+from nxs_types.model import NxsModel
 from nxs_types.nxs_args import NxsBackendArgs
 from nxs_types.scheduling_data import NxsSchedulingPerComponentModelPlan
 from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
@@ -187,6 +182,12 @@ class BackendBatcherProcess:
     def stop(self):
         self.stop_flag.value = True
         self.p.join()
+
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass
 
     def request_exiting(self, extra_metadata: Dict):
         preprocessing_t0 = extra_metadata[self.component_model.model_uuid].pop(
