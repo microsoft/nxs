@@ -1,20 +1,17 @@
+import copy
+import json
 import logging
 import os
 import pickle
 import time
-import json
-import cv2
-import copy
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict, List
+
+import cv2
+import numpy as np
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
-from nxs_libs.interface.backend.input import (
-    BackendInputInterfaceFactory,
-)
-from nxs_libs.interface.backend.output import (
-    BackendOutputInterfaceFactory,
-)
+from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
+from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
 from nxs_types.infer import (
     NxsInferInput,
     NxsInferInputType,
@@ -104,7 +101,8 @@ class BackendOutputProcess(ABC):
     def _run(self):
 
         # load post-processing fn
-        self._load_postprocessing_fn()
+        if not self.component_model.is_custom_model:
+            self._load_postprocessing_fn()
 
         self.input = BackendInputInterfaceFactory.create_input_interface(
             **self.input_interface_args
@@ -191,9 +189,13 @@ class BackendOutputProcess(ABC):
 
                 result = {}
                 try:
-                    result = self.postproc_fn(
-                        data, postproc_params, self.component_model, metadata
-                    )
+                    if self.postproc_fn is not None:
+                        result = self.postproc_fn(
+                            data, postproc_params, self.component_model, metadata
+                        )
+                    else:
+                        if data is not None:
+                            result = data
                 except Exception as ex:
                     metadata[
                         BACKEND_INTERNAL_CONFIG.TASK_STATUS
@@ -451,6 +453,12 @@ class BackendOutputProcess(ABC):
 
     def stop(self):
         self.p.join()
+
+    def terminate(self):
+        try:
+            self.p.terminate()
+        except:
+            pass
 
     @abstractmethod
     def request_entering(self, extra_metadata: Dict):

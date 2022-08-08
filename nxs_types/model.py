@@ -1,6 +1,7 @@
-from pydantic import Field
 from enum import Enum
 from typing import Dict, List, Optional
+
+from pydantic import Field
 
 from nxs_types import DataModel
 
@@ -123,6 +124,7 @@ class NxsBaseModel(DataModel):
     batching: bool = True
     cross_requests_batching: bool = True
     is_public: bool = False
+    is_custom_model: bool = False
 
 
 class NxsModel(NxsBaseModel):
