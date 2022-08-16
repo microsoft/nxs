@@ -135,7 +135,7 @@ class NxsRedisQueuePuller(NxsQueuePuller):
                     continue
 
                 _, d = data
-                d = pickle.loads(d)
+                # d = pickle.loads(d)
                 self._buf.append(d)
             except:
                 time.sleep(0.01)
@@ -209,6 +209,7 @@ class NxsRedisQueuePuller(NxsQueuePuller):
         cur_buf_size = len(self._buf)
         for _ in range(cur_buf_size):
             data = self._buf.pop(0)
+            data = pickle.loads(data)
             results.append(data)
 
         return results
@@ -284,6 +285,7 @@ class NxsRedisQueuePusher(NxsQueuePusher):
         self._topic2partitions: dict[str, int] = {}
         self._topic2partitionIdx: dict[str, int] = {}
         self._topic2timestamp: dict[str, float] = {}
+        self._topic2expiration: dict[str, float] = {}
 
         self._check_num_partitions_period_secs = 3
         self._new_topic_num_partitions = 1
@@ -314,7 +316,10 @@ class NxsRedisQueuePusher(NxsQueuePusher):
         while True:
             try:
                 self._client.rpush(topic, data)
-                self._client.expire(topic, expiration_duration_secs)
+                t0 = self._topic2expiration.get(topic, time.time())
+                if time.time() - t0 > self._expiration_duration_secs / 2:
+                    self._client.expire(topic, expiration_duration_secs)
+                    self._topic2expiration[topic] = time.time()
                 break
             except:
                 time.sleep(0.01)
