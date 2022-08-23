@@ -63,6 +63,7 @@ class OnlineVehicleTrackingApp:
         visualize: bool = False,
         job_duration: int = 21600,
         disk_usage_percentage_thresh: float = 80,
+        inference_retries: int = 90,
     ) -> None:
         self.video_uuid = video_uuid
         self.nxs_infer_url = nxs_infer_url

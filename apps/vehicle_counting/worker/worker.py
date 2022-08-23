@@ -40,6 +40,7 @@ def main():
         "--debug", default=False, type=lambda x: (str(x).lower() == "true")
     )
     parser.add_argument("--storage_usage_percentage_thresh", type=float, default=80.0)
+    parser.add_argument("--inference_retries", type=int, default=90)
     args = parser.parse_args()
 
     args.video_uuid = os.environ["VIDEO_UUID"]
@@ -55,6 +56,10 @@ def main():
         )
     except:
         args.storage_usage_percentage_thresh = 80.0
+    try:
+        args.inference_retries = int(os.environ.get("INFERENCE_RETRIES", "90"))
+    except:
+        args.inference_retries = 90
 
     has_error: bool = False
     error_str: str = ""
@@ -179,6 +184,7 @@ def main():
                 cosmosdb_db_name=args.cosmosdb_db_name,
                 counting_report_interval_secs=video_info.count_interval_secs,
                 job_duration=video_info.job_duration,
+                inference_retries=args.inference_retries,
             )
 
         app.run_tracking()
