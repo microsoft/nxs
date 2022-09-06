@@ -60,12 +60,12 @@ def run_detector(
             return infer_result
         except Exception as e:
             if logging_fn != None:
-                logging_fn(str(e))
+                logging_fn("[RUN_DETECTOR]: {}".format(str(e)))
 
             if retry == num_retries - 1:
                 raise e
 
-            time.sleep(0.1)
+            time.sleep(0.1 * (retry + 1))
 
 
 def run_tracker(
@@ -122,11 +122,12 @@ def run_tracker(
             return infer_result
         except Exception as e:
             if logging_fn != None:
-                logging_fn(str(e))
+                logging_fn("[RUN_TRACKER]: {}".format(str(e)))
 
             if retry == num_retries - 1:
                 raise e
-            time.sleep(0.1)
+
+            time.sleep(0.1 * (retry + 1))
 
 
 def _example_wh_to_size(target_size, context_amount=0.5):

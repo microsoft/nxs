@@ -66,6 +66,7 @@ class OfflineVehicleTrackingApp:
         visualize: bool = False,
         job_duration: int = 21600,
         disk_usage_percentage_thresh: float = 80,
+        inference_retries: int = 90,
     ) -> None:
         self.video_uuid = video_uuid
         self.nxs_infer_url = nxs_infer_url
@@ -81,6 +82,7 @@ class OfflineVehicleTrackingApp:
 
         self.job_duration = job_duration
         self.disk_usage_percentage_thresh = disk_usage_percentage_thresh
+        self.inference_retries = inference_retries
 
         # self.cap = cv2.VideoCapture(video_url)
         # self.frame_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -175,6 +177,7 @@ class OfflineVehicleTrackingApp:
                     frame,
                     obj_track.track[-1],
                     self.nxs_api_key,
+                    num_retries=self.inference_retries,
                     logging_fn=self._append_log,
                 )
 
@@ -242,6 +245,7 @@ class OfflineVehicleTrackingApp:
                     self.detector_uuid,
                     frames[0],
                     self.nxs_api_key,
+                    num_retries=self.inference_retries,
                     logging_fn=self._append_log,
                 ).detections
             except Exception as e:
