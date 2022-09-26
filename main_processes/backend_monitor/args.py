@@ -6,6 +6,7 @@ def parse_args():
 
     parser = get_common_parser()
     parser.add_argument("--polling_interval_secs", type=float, default=3)
+    parser.add_argument("--store_db_interval_secs", type=float, default=300)
     _args = parser.parse_args()
 
     args = NxsBackendMonitorArgs(**(vars(_args)))

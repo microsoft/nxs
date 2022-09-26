@@ -112,6 +112,33 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_pipline_collection" {
   }
 }
 
+# create Stats collection
+resource "azurerm_cosmosdb_mongo_collection" "maindb_pipline_collection" {
+  name                = "Stats"
+  resource_group_name = azurerm_cosmosdb_account.nxs_mongodb.resource_group_name
+  account_name        = azurerm_cosmosdb_account.nxs_mongodb.name
+  database_name       = azurerm_cosmosdb_mongo_database.nxs_mongodb_maindb.name
+
+  default_ttl_seconds = "-1"
+  shard_key           = "zone"
+  #throughput          = 400
+
+  index {
+    keys   = ["_id"]
+    unique = true
+  }
+
+  index {
+    keys   = ["utc_ts", "zone"]
+    unique = false
+  }
+
+  index {
+    keys   = ["utc_ts"]
+    unique = false
+  }
+}
+
 output db_info {
   value = {
     nxs_mongodb_key = azurerm_cosmosdb_account.nxs_mongodb.primary_key
