@@ -1,11 +1,12 @@
-from pydantic import Field
 from enum import Enum
 from typing import List, Optional
-from nxs_types import DataModel
 
 from nxs_libs.db import NxsDbType
-from nxs_libs.storage import NxsStorageType
 from nxs_libs.queue import NxsQueueType
+from nxs_libs.storage import NxsStorageType
+from pydantic import Field
+
+from nxs_types import DataModel
 
 
 class NxsBaseArgs(DataModel):
@@ -62,6 +63,7 @@ class NxsBackendArgs(NxsBaseArgs):
 
 class NxsBackendMonitorArgs(NxsBaseArgs):
     polling_interval_secs: float = 5
+    store_db_interval_secs: float = 300
 
 
 class NxsWorkloadManagerArgs(NxsBaseArgs):
