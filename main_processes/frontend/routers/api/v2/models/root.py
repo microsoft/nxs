@@ -1,10 +1,18 @@
-from fastapi import APIRouter, File, Security, UploadFile
-from fastapi import HTTPException, status
-from fastapi import Depends
-from fastapi.security import APIKeyHeader
-
 import time
 from datetime import datetime
+
+from configs import *
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Security,
+    UploadFile,
+    status,
+)
+from fastapi.security import APIKeyHeader
+from main_processes.frontend.args import parse_args
 from main_processes.frontend.routers.api.v2.pipelines.root import _register_pipeline
 from main_processes.frontend.utils import (
     async_download_to_file,
@@ -14,13 +22,9 @@ from main_processes.frontend.utils import (
 )
 from nxs_libs.storage.nxs_blobstore import NxsAzureBlobStorage
 from nxs_libs.storage.nxs_blobstore_async import NxsAsyncAzureBlobStorage
-
-from nxs_utils.nxs_helper import *
-from nxs_utils.common import *
 from nxs_types.model import *
-
-from configs import *
-from main_processes.frontend.args import parse_args
+from nxs_utils.common import *
+from nxs_utils.nxs_helper import *
 
 args = parse_args()
 
@@ -207,11 +211,11 @@ async def infer_from_file(
 @router.post("/register-w4-model", response_model=NxsPipelineRegistrationResponse)
 async def register_w4_model(
     registering_model: NxsW4ModelRegistrationRequest,
-    registering_model_type: str,
+    registering_model_type: PipelineOutputType,
     authenticated: bool = Depends(check_api_key),
 ):
     try:
-        return await _register_w4_model(registering_model, registering_model_type)
+        return await _register_w4_model(registering_model, registering_model_type.value)
     except Exception as e:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
