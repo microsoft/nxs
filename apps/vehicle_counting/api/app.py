@@ -3,30 +3,35 @@ import math
 import os
 import subprocess
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from typing import List
 
 import uvicorn
-from apps.vehicle_counting.app_types.app_request import (
-    InDbTrackingAppRequest,
-    RequestStatus,
-    TrackingAppRequest,
-    TrackingAppResponse,
-    TrackingAppStatus,
-    TrackingCountPerClass,
-    TrackingCountPerRoi,
-    TrackingCountResult,
-    VisualizationResult,
-)
-from azure.storage.blob import (
-    AccountSasPermissions,
-    BlobServiceClient,
-    ResourceTypes,
-    generate_account_sas,
-)
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Security, status
+from apps.vehicle_counting.app_types.app_request import InDbTrackingAppRequest
+from apps.vehicle_counting.app_types.app_request import RequestStatus
+from apps.vehicle_counting.app_types.app_request import TrackingAppRequest
+from apps.vehicle_counting.app_types.app_request import TrackingAppResponse
+from apps.vehicle_counting.app_types.app_request import TrackingAppStatus
+from apps.vehicle_counting.app_types.app_request import TrackingCountPerClass
+from apps.vehicle_counting.app_types.app_request import TrackingCountPerRoi
+from apps.vehicle_counting.app_types.app_request import TrackingCountResult
+from apps.vehicle_counting.app_types.app_request import VisualizationResult
+from azure.storage.blob import AccountSasPermissions
+from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import ResourceTypes
+from azure.storage.blob import generate_account_sas
+from fastapi import BackgroundTasks
+from fastapi import Depends
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import Security
+from fastapi import status
 from fastapi.security import APIKeyHeader
-from nxs_libs.db import NxsDbFactory, NxsDbQueryConfig, NxsDbSortType, NxsDbType
+from nxs_libs.db import NxsDbFactory
+from nxs_libs.db import NxsDbQueryConfig
+from nxs_libs.db import NxsDbSortType
+from nxs_libs.db import NxsDbType
 
 import yaml
 
@@ -91,7 +96,8 @@ async def check_api_key(api_key_header: str = Security(api_key_header)):
 def get_jobs(
     authenticated: bool = Depends(check_api_key),
 ):
-    from kubernetes import client, config
+    from kubernetes import client
+    from kubernetes import config
 
     config.load_kube_config()
     api_instance = client.BatchV1Api()
@@ -422,7 +428,10 @@ def get_counts(
     if last_ts > 0:
         query_results = db_client.query(
             DB_COUNTS_COLLECTION_NAME,
-            {"video_uuid": video_uuid, "timestamp": {"$gt": last_ts * 1000}},
+            {"video_uuid": video_uuid, "timestamp": {"$gt": last_ts * 1000}}, 
+            NxsDbQueryConfig(
+                sort_list=[("timestamp", NxsDbSortType.ASCENDING)], limit=1
+            ),
         )
     else:
         query_results = db_client.query(
