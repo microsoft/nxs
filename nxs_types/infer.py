@@ -58,6 +58,17 @@ class NxsInferTextInput(NxsInferInputBase):
     text: str
 
 
+class NxsInferSingleInputFromUrl(NxsInferInputBase):
+    url: str
+
+
+class NxsInferSingleInputFromAzureBlobstore(NxsInferInputBase):
+    blobstore_account_name: str
+    blobstore_container_name: str
+    blobstore_sas_token: str
+    blobstore_path: str
+
+
 class NxsInferInput(DataModel):
     name: str
     type: NxsInferInputType

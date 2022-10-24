@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends python3 python3-pip wget pkg-config git llvm-12 llvm-12-dev python3-dev python3-pip python3-setuptools python3-wheel python3-opencv \
-    gcc libtinfo-dev zlib1g-dev build-essential cmake libedit-dev libxml2-dev libomp-dev && \
+    gcc libtinfo-dev zlib1g-dev build-essential cmake libedit-dev libxml2-dev libomp-dev ffmpeg && \
     apt clean
 
 COPY requirements.txt requirements.txt

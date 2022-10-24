@@ -50,14 +50,18 @@ from nxs_types.infer import (
     NxsInferInput,
     NxsInferInputType,
     NxsInferRequest,
+    NxsInferSingleInputFromAzureBlobstore,
+    NxsInferSingleInputFromUrl,
     NxsInferStatus,
     NxsInferTextInput,
     NxsTensorsInferRequest,
 )
 from nxs_types.infer_result import (
+    NxsInferClassificationResult,
     NxsInferResult,
     NxsInferResultType,
     NxsInferResultWithMetadata,
+    NxsInferSpeechTranscriptionResult,
 )
 from nxs_types.log import (
     NxsBackendCmodelThroughputLog,
@@ -113,6 +117,89 @@ async def check_api_key(api_key_header: str = Security(api_key_header)):
         )
 
     return True
+
+
+def extract_fields_from_result(
+    infer_result: NxsInferResult, expected_types: List[NxsInferResultType]
+):
+    if infer_result.status == NxsInferStatus.FAILED:
+        if len(infer_result.error_msgs) > 0:
+            raise Exception(infer_result.error_msgs[0])
+        else:
+            raise Exception(
+                "Inference failed due to unknown exception. Please try again later."
+            )
+
+    if infer_result.type not in expected_types:
+        raise Exception(
+            "Type {} is not in expected list {}.".format(
+                type(infer_result.type), expected_types
+            )
+        )
+
+    if infer_result.type == NxsInferResultType.CLASSIFICATION:
+        return infer_result.classification
+    elif infer_result.type == NxsInferResultType.DETECTION:
+        return infer_result.detections
+    elif infer_result.type == NxsInferResultType.OCR:
+        return infer_result.ocr
+    elif infer_result.type == NxsInferResultType.EMBEDDING:
+        return infer_result.embedding
+    elif infer_result.type == NxsInferResultType.SPEECH_TRANSCRIPTION:
+        return infer_result.speech_transcription
+
+
+async def process_single_input_task_from_url(
+    pipeline_uuid: str,
+    session_uuid: str,
+    url: str,
+    extra_params: NxsInferExtraParams = NxsInferExtraParams(),
+    infer_timeout: float = 10,
+) -> NxsInferResult:
+    try:
+        data_bin = await async_download_to_memory(url)
+        return await _infer_single(
+            data_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
+    except Exception as e:
+        write_log(
+            "process_single_input_task_from_url",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[str(e)],
+        )
+
+
+async def process_single_input_task_from_azure_blobstore(
+    pipeline_uuid: str,
+    session_uuid: str,
+    blobstore_path: str,
+    external_model_store: NxsAsyncAzureBlobStorage,
+    extra_params: NxsInferExtraParams = NxsInferExtraParams(),
+    infer_timeout: float = 10,
+) -> NxsInferResult:
+    try:
+        data_bin = await external_model_store.download(blobstore_path)
+        return await _infer_single(
+            data_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
+    except Exception as e:
+        write_log(
+            "process_single_input_task_from_azure_blobstore",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+        return NxsInferResult(
+            type=NxsInferResultType.CUSTOM,
+            status=NxsInferStatus.FAILED,
+            task_uuid="",
+            error_msgs=[str(e)],
+        )
 
 
 def task_monitor_thread():
@@ -496,6 +583,133 @@ async def submit_text_task(
         )
 
     return res
+
+
+@router.post(
+    "/audio/file",
+    response_model=Union[
+        NxsInferSpeechTranscriptionResult, NxsInferClassificationResult
+    ],
+)
+async def submit_audio_task_from_file(
+    pipeline_uuid: str,
+    session_uuid: str = "global",
+    file: UploadFile = File(...),
+    extra_params_json_str: str = '{"preproc": {}, "postproc": {}, "transform": {}}',
+    infer_timeout: float = 60,
+    authenticated: bool = Depends(check_api_key),
+):
+    audio_bin = await file.read()
+
+    extra_params = {}
+    try:
+        extra_params = json.loads(extra_params_json_str)
+    except Exception as e:
+        write_log(
+            "/audio/file",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+
+    extra_params = NxsInferExtraParams(**extra_params)
+
+    try:
+        res = await _infer_single(
+            audio_bin, pipeline_uuid, session_uuid, extra_params, infer_timeout
+        )
+
+        return extract_fields_from_result(
+            res,
+            [
+                NxsInferResultType.CLASSIFICATION,
+                NxsInferResultType.SPEECH_TRANSCRIPTION,
+            ],
+        )
+    except Exception as e:
+        write_log(
+            "/audio/file",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post(
+    "/audio/url",
+    response_model=Union[
+        NxsInferSpeechTranscriptionResult, NxsInferClassificationResult
+    ],
+)
+async def submit_audio_task_from_url(
+    infer_info: NxsInferSingleInputFromUrl,
+    authenticated: bool = Depends(check_api_key),
+):
+    res = await process_single_input_task_from_url(
+        infer_info.pipeline_uuid,
+        infer_info.session_uuid,
+        infer_info.url,
+        infer_info.extra_params,
+        infer_info.infer_timeout,
+    )
+
+    try:
+        return extract_fields_from_result(
+            res,
+            [
+                NxsInferResultType.CLASSIFICATION,
+                NxsInferResultType.SPEECH_TRANSCRIPTION,
+            ],
+        )
+    except Exception as e:
+        write_log(
+            "/audio/url",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post(
+    "/audio/blobstore",
+    response_model=Union[
+        NxsInferSpeechTranscriptionResult, NxsInferClassificationResult
+    ],
+)
+async def submit_audio_task_from_azure_blobstore(
+    infer_info: NxsInferSingleInputFromAzureBlobstore,
+    authenticated: bool = Depends(check_api_key),
+):
+    external_model_store = NxsAsyncAzureBlobStorage.from_sas_token(
+        account_name=infer_info.blobstore_account_name,
+        sas_token=infer_info.blobstore_sas_token,
+        container_name=infer_info.blobstore_container_name,
+    )
+    res = await process_single_input_task_from_azure_blobstore(
+        infer_info.pipeline_uuid,
+        infer_info.session_uuid,
+        infer_info.blobstore_path,
+        external_model_store,
+        infer_info.extra_params,
+        infer_info.infer_timeout,
+    )
+
+    await external_model_store.close()
+
+    try:
+        return extract_fields_from_result(
+            res,
+            [
+                NxsInferResultType.CLASSIFICATION,
+                NxsInferResultType.SPEECH_TRANSCRIPTION,
+            ],
+        )
+    except Exception as e:
+        write_log(
+            "/audio/blobstore",
+            "Exception: {}".format(str(e)),
+            NxsLogLevel.INFO,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/tensors/infer", response_model=NxsInferResult)

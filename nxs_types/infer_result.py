@@ -1,6 +1,8 @@
-import numpy as np
 from enum import Enum
 from typing import Dict, List, Optional
+
+import numpy as np
+
 from nxs_types import DataModel
 from nxs_types.infer import NxsInferStatus
 
@@ -11,6 +13,7 @@ class NxsInferResultType(str, Enum):
     OCR = "ocr"
     CUSTOM = "custom"
     EMBEDDING = "embedding"
+    SPEECH_TRANSCRIPTION = "speech_transcription"
 
 
 class NxsInferDetectorBBoxLocation(DataModel):
@@ -75,6 +78,22 @@ class NxsInferEmbeddingResult(DataModel):
     length: int
 
 
+class NxsInferSpeechTranscriptionSegment(DataModel):
+    segment_id: int
+    seek: float
+    start: float
+    end: float
+    text: str
+    avg_logprob: float = 0
+    no_speech_prob: float = 0
+
+
+class NxsInferSpeechTranscriptionResult(DataModel):
+    text: str
+    language: str = "en"
+    segments: List[NxsInferSpeechTranscriptionSegment] = []
+
+
 class NxsInferResult(DataModel):
     type: NxsInferResultType
     status: NxsInferStatus = NxsInferStatus.PENDING
@@ -84,6 +103,7 @@ class NxsInferResult(DataModel):
     classification: Optional[NxsInferClassificationResult] = None
     ocr: Optional[List[NxsInferOcrResult]] = []
     embedding: Optional[NxsInferEmbeddingResult]
+    speech_transcription: Optional[NxsInferSpeechTranscriptionResult]
     custom: str = ""
     e2e_latency: float = 0
 

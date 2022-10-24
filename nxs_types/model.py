@@ -57,6 +57,7 @@ class PipelineOutputType(str, Enum):
     DETECTION = "detection"
     OCR = "ocr"
     EMBEDDING = "embedding"
+    SPEECH_TRANSCRIPTION = "speech_transcription"
     CUSTOM = "custom"
 
 

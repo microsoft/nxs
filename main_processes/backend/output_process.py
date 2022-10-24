@@ -26,6 +26,8 @@ from nxs_types.infer_result import (
     NxsInferResult,
     NxsInferResultType,
     NxsInferResultWithMetadata,
+    NxsInferSpeechTranscriptionResult,
+    NxsInferSpeechTranscriptionSegment,
     NxsInferStatus,
 )
 from nxs_types.model import NxsModel
@@ -336,6 +338,33 @@ class BackendOutputProcess(ABC):
                                         embedding=NxsInferEmbeddingResult(
                                             embedding=result["embedding"],
                                             length=len(result["embedding"]),
+                                        ),
+                                    )
+                                elif "transcription" in result:
+                                    _result = result["transcription"]
+                                    result = NxsInferResultWithMetadata(
+                                        type=NxsInferResultType.SPEECH_TRANSCRIPTION,
+                                        task_uuid=user_metadata.task_uuid,
+                                        status=status,
+                                        error_msgs=metadata.get(
+                                            BACKEND_INTERNAL_CONFIG.TASK_ERROR_MSGS,
+                                            [],
+                                        ),
+                                        speech_transcription=NxsInferSpeechTranscriptionResult(
+                                            text=_result["text"],
+                                            language=_result["language"],
+                                            segments=[
+                                                NxsInferSpeechTranscriptionSegment(
+                                                    segment_id=s["id"],
+                                                    seek=s["seek"],
+                                                    start=s["start"],
+                                                    end=s["end"],
+                                                    text=s["text"],
+                                                    avg_logprob=s["avg_logprob"],
+                                                    no_speech_prob=s["no_speech_prob"],
+                                                )
+                                                for s in _result["segments"]
+                                            ],
                                         ),
                                     )
 

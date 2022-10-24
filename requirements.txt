@@ -32,9 +32,11 @@ fastapi==0.72.0
 uvicorn[standard]==0.17.0
 torch==1.10.1
 torchvision==0.11.2
-#transformers>=4.0.0
-transformers==4.16.1
+transformers>=4.19.0
 SentencePiece==0.1.96
 Pillow==9.0.1
 aiofile==3.7.4
 kubernetes==17.17.0
+ffmpeg-python==0.2.0
+tqdm==4.64.1
+more-itertools==8.5.0
