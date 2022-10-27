@@ -430,7 +430,7 @@ def get_counts(
             DB_COUNTS_COLLECTION_NAME,
             {"video_uuid": video_uuid, "timestamp": {"$gt": last_ts * 1000}}, 
             NxsDbQueryConfig(
-                sort_list=[("timestamp", NxsDbSortType.ASCENDING)], limit=1
+                sort_list=[("timestamp", NxsDbSortType.ASCENDING)],
             ),
         )
     else:
