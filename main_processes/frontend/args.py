@@ -16,19 +16,15 @@ def parse_args():
         type=lambda x: (str(x).lower() == "true"),
     )
     parser.add_argument(
-        "--enable_v1_api",
+        "--enable_v1_api", default=False, type=lambda x: (str(x).lower() == "true"),
+    )
+    parser.add_argument(
+        "--enable_manual_scaling",
         default=False,
         type=lambda x: (str(x).lower() == "true"),
     )
     parser.add_argument(
-        "--enable_scaling",
-        default=False,
-        type=lambda x: (str(x).lower() == "true"),
-    )
-    parser.add_argument(
-        "--wait_for_models",
-        default=True,
-        type=lambda x: (str(x).lower() == "true"),
+        "--wait_for_models", default=True, type=lambda x: (str(x).lower() == "true"),
     )
     _args = parser.parse_args()
 

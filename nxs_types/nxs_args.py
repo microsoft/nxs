@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List
+from typing import Optional
 
 from nxs_libs.db import NxsDbType
 from nxs_libs.queue import NxsQueueType
@@ -32,6 +33,8 @@ class NxsBaseArgs(DataModel):
     job_redis_queue_password: Optional[str]
     job_redis_queue_use_ssl: Optional[bool]
 
+    enable_autoscaling: Optional[bool]
+
     tmp_dir: str
 
 
@@ -43,7 +46,7 @@ class NxsApiArgs(NxsBaseArgs):
     api_key: str = ""
     enable_benchmark_api: bool = False
     enable_v1_api: bool = False
-    enable_scaling: bool = False
+    enable_manual_scaling: bool = False
     wait_for_models: bool = True
 
 

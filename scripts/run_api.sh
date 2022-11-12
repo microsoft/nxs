@@ -5,15 +5,29 @@ then
     ENABLE_API_V1="false"
 fi
 
+if [ -z "$ENABLE_AUTO_SCALING" ]
+then
+    ENABLE_AUTO_SCALING="false"
+fi
+
+ENABLE_MANUAL_SCALING="false"
+
 KUBECONFIG_FILE="/mnt/secrets-store/AksKubeConfig"
 if [ -f "$KUBECONFIG_FILE" ]; then
     mkdir -p /root/.kube
     cp -f $KUBECONFIG_FILE /root/.kube/config
     kubectl get pods
-    ENABLE_KUBERNETES_SCALING="true"
+
+    if [ "$ENABLE_AUTO_SCALING" = "false" ]; then
+        # only enable manual scaling if auto scaling is false
+        ENABLE_MANUAL_SCALING="true"    
+    fi
 else 
-    ENABLE_KUBERNETES_SCALING="false"
+    ENABLE_MANUAL_SCALING="false"
+    ENABLE_AUTO_SCALING="false"
 fi
+
+
 
 export PYTHONPATH=/app
 python3 main_processes/frontend/app.py --frontend_name $MY_POD_NAME --port $API_SERVER_PORT \
@@ -30,4 +44,5 @@ python3 main_processes/frontend/app.py --frontend_name $MY_POD_NAME --port $API_
 --tmp_dir $TMP_DIR \
 --api_key $API_KEY \
 --enable_v1_api $ENABLE_API_V1 \
---enable_scaling $ENABLE_KUBERNETES_SCALING
+--enable_manual_scaling $ENABLE_MANUAL_SCALING \
+--enable_autoscaling $ENABLE_AUTO_SCALING

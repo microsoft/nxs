@@ -1,12 +1,22 @@
-from typing import Dict, List, Tuple
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
+from typing import Dict
+from typing import List
+from typing import Tuple
+
 from nxs_types.backend import BackendInfo
-from nxs_types.scheduling_data import NxsSchedulingPlan, NxsSchedulingRequest
+from nxs_types.scheduling_data import NxsSchedulingPlan
+from nxs_types.scheduling_data import NxsSchedulingRequest
 
 
 class BaseSchedulingPolicy(ABC):
+    MAX_MODELS_PER_BACKEND = 5
+
     def __init__(self) -> None:
         super().__init__()
+
+    def set_max_models(self, max_models: int):
+        self.MAX_MODELS_PER_BACKEND = max_models
 
     @abstractmethod
     def schedule(

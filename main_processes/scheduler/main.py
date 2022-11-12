@@ -1,51 +1,55 @@
 import copy
 import json
 import logging
+import math
+import subprocess
 import time
+from typing import Tuple
 
-from configs import GLOBAL_QUEUE_NAMES, NXS_CONFIG
+from configs import GLOBAL_QUEUE_NAMES
+from configs import NXS_CONFIG
 from lru import LRU
-from nxs_libs.db import NxsDb, NxsDbFactory, NxsDbType
+from nxs_libs.db import NxsDb
+from nxs_libs.db import NxsDbFactory
+from nxs_libs.db import NxsDbType
 from nxs_libs.interface.scheduling_policy import BaseSchedulingPolicy
 from nxs_libs.interface.scheduling_policy.simple_policy_v2 import (
     SimpleSchedulingPolicyv2,
-)
+)  # NOQA
 from nxs_libs.object.backend_runtime import NxsBackendRuntime
 from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
-from nxs_libs.queue import (
-    NxsQueuePuller,
-    NxsQueuePullerFactory,
-    NxsQueuePusher,
-    NxsQueuePusherFactory,
-    NxsQueueType,
-)
-from nxs_libs.simple_key_value_db import (
-    NxsSimpleKeyValueDb,
-    NxsSimpleKeyValueDbFactory,
-    NxsSimpleKeyValueDbType,
-)
+from nxs_libs.queue import NxsQueuePuller
+from nxs_libs.queue import NxsQueuePullerFactory
+from nxs_libs.queue import NxsQueuePusher
+from nxs_libs.queue import NxsQueuePusherFactory
+from nxs_libs.queue import NxsQueueType
+from nxs_libs.simple_key_value_db import NxsSimpleKeyValueDb
+from nxs_libs.simple_key_value_db import NxsSimpleKeyValueDbFactory
+from nxs_libs.simple_key_value_db import NxsSimpleKeyValueDbType
 from nxs_types.backend import BackendInfo
-from nxs_types.log import (
-    NxsSchedulerLog,
-    SimplifiedNxsSchedulingPerBackendPlan,
-    SimplifiedNxsSchedulingRequest,
-)
+from nxs_types.log import NxsSchedulerLog
+from nxs_types.log import SimplifiedNxsSchedulingPerBackendPlan
+from nxs_types.log import SimplifiedNxsSchedulingRequest
 from nxs_types.message import *
-from nxs_types.model import NxsCompositoryModel, NxsModel, NxsPipelineInfo
+from nxs_types.model import NxsCompositoryModel
+from nxs_types.model import NxsModel
+from nxs_types.model import NxsPipelineInfo
 from nxs_types.nxs_args import NxsSchedulerArgs
 from nxs_types.scheduling_data import NxsSchedulingRequest
-from nxs_utils.logging import (
-    NxsLogLevel,
-    NxsLogLevel2LoggingLevelMap,
-    setup_logger,
-    write_log,
-)
-from nxs_utils.nxs_helper import (
-    create_db_from_args,
-    create_queue_puller_from_args,
-    create_queue_pusher_from_args,
-    create_simple_key_value_db_from_args,
-)
+from nxs_utils.logging import NxsLogLevel
+from nxs_utils.logging import NxsLogLevel2LoggingLevelMap
+from nxs_utils.logging import setup_logger
+from nxs_utils.logging import write_log
+from nxs_utils.nxs_helper import create_db_from_args
+from nxs_utils.nxs_helper import create_queue_puller_from_args
+from nxs_utils.nxs_helper import create_queue_pusher_from_args
+from nxs_utils.nxs_helper import create_simple_key_value_db_from_args
+
+
+class AUTOSCALING_STATUS(Enum):
+    NO_SCALING = (1,)
+    SCALING_UP = (2,)
+    SCALING_DOWN = 3
 
 
 class NxsSchedulerProcess:
@@ -53,6 +57,8 @@ class NxsSchedulerProcess:
 
     BACKEND_ROOT_TOPIC = "backends"
     MODEL_ROOT_TOPIC = "models"
+
+    MAX_IDLE_TIME = 15 * 60
 
     def __init__(
         self,
@@ -75,6 +81,13 @@ class NxsSchedulerProcess:
         self.backends: dict[str, NxsBackendRuntime] = {}
         self.cpu_backends: dict[str, NxsBackendRuntime] = {}
         self.gpu_backends: dict[str, NxsBackendRuntime] = {}
+
+        # track backend join-time
+        self.backend_last_scheduled_ts_dict: dict[str, float] = {}
+        self.to_remove_backends: List[
+            str
+        ] = []  # ignore backends in this list when scheduling
+        self.scaling_status = AUTOSCALING_STATUS.NO_SCALING
 
         self.pipeline_info_cache = LRU(self.PIPELINE_CACHE_SIZE)
         self.compository_model_info_cache = LRU(self.PIPELINE_CACHE_SIZE * 5)
@@ -217,6 +230,9 @@ class NxsSchedulerProcess:
 
         backend.update_entry_in_db(self.state_db)
 
+        # add backend joining timestamp
+        self.backend_last_scheduled_ts_dict[backend_name] = time.time()
+
         self._log(f"Backend {backend_name} was added.")
 
     def send_heartbeat_interval(self, backend_name: str):
@@ -255,12 +271,16 @@ class NxsSchedulerProcess:
         for request in scheduling_requests:
             _scheduling_requests.append(self._clone_nxs_scheduling_request(request))
 
+        # get available backends - ignore terminating ones
+        available_backends: List[BackendInfo] = []
+        for backend_name in self.backends.keys():
+            if backend_name in self.to_remove_backends:
+                continue
+
+            available_backends.append(self.backends[backend_name].get_runtime_info())
+
         final_plan = self.scheduling_policy.schedule(
-            scheduling_requests,
-            [
-                self.backends[backend_name].get_runtime_info()
-                for backend_name in self.backends.keys()
-            ],
+            scheduling_requests, available_backends,
         )
         scheduling_plans = final_plan.scheduling
         unscheduling_plans = final_plan.unscheduling
@@ -285,6 +305,9 @@ class NxsSchedulerProcess:
                 self._log(
                     f"Allocating {cplan.model_uuid} to backend {plan.backend_name}"
                 )
+
+            # update last scheduled ts
+            self.backend_last_scheduled_ts_dict[backend_name] = time.time()
 
         self.last_requests = _scheduling_requests
 
@@ -314,9 +337,220 @@ class NxsSchedulerProcess:
             )
 
         self.kv_store.set_value(
-            GLOBAL_QUEUE_NAMES.SCHEDULER_LOGS,
-            scheduling_log,
+            GLOBAL_QUEUE_NAMES.SCHEDULER_LOGS, scheduling_log,
         )
+
+        # perform scaling down cluster if needed
+        if self.args.enable_autoscaling:
+            # try our-best to scale
+            try:
+                # check if cluster is under scaling
+                (
+                    num_gpu_replicas,
+                    num_gpu_ready_replicas,
+                ) = self._get_deployment_replicas_info("nxs-backend-gpu", "nxs")
+                if num_gpu_replicas == num_gpu_ready_replicas:
+                    num_extra_nodes = self._check_up_scaling_required(
+                        scheduling_requests, scheduling_plans
+                    )
+                    if num_extra_nodes > 0:
+                        new_num_nodes = len(self.gpu_backends) + num_extra_nodes
+                        new_num_nodes = 2 ** (
+                            int(math.ceil(math.sqrt(new_num_nodes)))
+                        )  # simple strategy: x2 number of nodes then scale it down
+                        self._scale_cluster(
+                            "nxs-backend-gpu",
+                            "nxs",
+                            len(self.gpu_backends) + num_extra_nodes,
+                        )
+                    else:
+                        deallocable_backends = self._get_deallocable_backends(
+                            scheduling_plans
+                        )
+                        if len(deallocable_backends) > 0:
+                            # scale it down
+                            subprocess_args = [
+                                "kubectl",  # 0
+                                "patch",  # 1
+                                "pod",  # 2
+                                "pod_name",  # 3
+                                "-n",  # 4
+                                "nxs",  # 5
+                                "-p",  # 6
+                                "config",  # 7
+                            ]
+
+                            for backend_name in self.gpu_backends:
+                                subprocess_args[3] = backend_name
+                                if backend_name not in deallocable_backends:
+                                    subprocess_args[
+                                        7
+                                    ] = '{"metadata":{"annotations":{"controller.kubernetes.io/pod-deletion-cost" : "10"}}}'
+                                else:
+                                    subprocess_args[
+                                        7
+                                    ] = '{"metadata":{"annotations":{"controller.kubernetes.io/pod-deletion-cost" : "0"}}}'
+                                subprocess.run(subprocess_args)
+
+                            new_num_nodes = max(
+                                1, len(self.gpu_backends) - len(deallocable_backends)
+                            )
+                            self._scale_cluster(
+                                "nxs-backend-gpu", "nxs", new_num_nodes,
+                            )
+
+            except Exception as e:
+                print(e)
+
+    def _get_deallocable_backends(
+        self, scheduling_plans: List[NxsSchedulingPerBackendPlan],
+    ):
+        empty_backends: List[str] = list(self.backends.keys())
+        for plan in scheduling_plans:
+            backend_name = plan.backend_name
+            if backend_name in empty_backends:
+                empty_backends.remove(backend_name)
+
+        to_deallocate_backends: List[str] = []
+        for backend_name in empty_backends:
+            if (
+                time.time() - self.backend_last_scheduled_ts_dict[backend_name]
+                > 15 * 60
+            ):
+                to_deallocate_backends.append(backend_name)
+
+        return to_deallocate_backends
+
+    def _scale_cluster(self, deployment_name, namespace, num_nodes):
+        deployment_items = []
+
+        try:
+            from kubernetes import client
+            from kubernetes import config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace=namespace)
+            deployment_items = deployment.items
+        except Exception as e:
+            raise e
+
+        found_backend_deployment = False
+        for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
+            if item.metadata.labels["name"] == deployment_name:
+                item.spec.replicas = num_nodes
+
+                try:
+                    api_response = api_instance.patch_namespaced_deployment(
+                        deployment_name, namespace, item
+                    )
+
+                    found_backend_deployment = True
+                except Exception as e:
+                    raise e
+
+    def _check_up_scaling_required(
+        self,
+        scheduling_requests: List[NxsSchedulingRequest],
+        scheduling_plans: List[NxsSchedulingPerBackendPlan],
+    ):
+        # only works for gpu now
+        model_to_profile: dict[str, int] = {}
+        model_to_req_tp: dict[str, int] = {}
+        model_to_scheduled_tp: dict[str, int] = {}
+
+        for r in scheduling_requests:
+            for model in r.pipeline_info.models:
+                model_to_req_tp[model.main_model.model_uuid] = (
+                    model_to_req_tp.get(model.main_model.model_uuid, 0)
+                    + r.requested_fps
+                )
+
+                for cmodel in model.component_models:
+                    max_fps = 0
+                    for profile_data in cmodel.profile:
+                        fps = profile_data.fps
+                        max_fps = max(fps, max_fps)
+
+                    model_to_profile[model.main_model.model_uuid] = min(
+                        max_fps,
+                        model_to_profile.get(model.main_model.model_uuid, 9999999),
+                    )
+
+        for plan in scheduling_plans:
+            for model in plan.compository_model_plans:
+                model_uuid = model.model_uuid
+                model_to_scheduled_tp[model_uuid] = (
+                    model_to_scheduled_tp.get(model_uuid, 0)
+                    + model_to_profile[model_uuid]
+                )
+
+        # check unscheduled models
+        num_unscheduled_models = 0
+        for model_uuid in model_to_req_tp:
+            if not model_uuid in model_to_scheduled_tp:
+                num_unscheduled_models += 1
+
+        num_extra_backends_required = 0
+        for model_uuid in model_to_scheduled_tp:
+            scheduled_fps = model_to_scheduled_tp[model_uuid]
+            requested_fps = model_to_req_tp[model_uuid]
+
+            if requested_fps > scheduled_fps:
+                num_extra_backends_required += (
+                    int(requested_fps - scheduled_fps) / model_to_profile[model_uuid]
+                )
+
+        num_extra_backends_required += int(
+            math.ceil(
+                float(num_unscheduled_models)
+                / self.scheduling_policy.MAX_MODELS_PER_BACKEND
+            )
+        )
+
+        return num_extra_backends_required
+
+    def _get_deployment_replicas_info(
+        deployment_name: str, namespace: str = "nxs"
+    ) -> Tuple[int, int]:
+        num_replicas = 0
+        num_ready_replicas = 0
+
+        deployment_items = []
+
+        try:
+            from kubernetes import client
+            from kubernetes import config
+
+            config.load_kube_config()
+
+            api_instance = client.AppsV1Api()
+            deployment = api_instance.list_namespaced_deployment(namespace=namespace)
+            deployment_items = deployment.items
+        except Exception as e:
+            raise e
+
+        for item in deployment_items:
+            if "name" not in item.metadata.labels:
+                continue
+
+            if item.metadata.labels["name"] == deployment_name:
+                try:
+                    num_replicas = item.spec.replicas
+                    num_ready_replicas = item.status.ready_replicas
+                except:
+                    pass
+
+        if num_replicas is None:
+            num_replicas = 0
+        if num_ready_replicas is None:
+            num_ready_replicas = 0
+
+        return num_replicas, num_ready_replicas
 
     def _clone_nxs_scheduling_request(
         self, request: NxsSchedulingRequest
@@ -383,6 +617,9 @@ class NxsSchedulerProcess:
             backend = self.backends.pop(backend_name)
             self.cpu_backends.pop(backend_name, None)
             self.gpu_backends.pop(backend_name, None)
+            self.backend_last_scheduled_ts_dict.pop(backend_name, None)
+            if backend_name in self.to_remove_backends:
+                self.to_remove_backends.remove(backend_name)
             backend.remove(self.state_db)
 
             # print(f"Backend {backend_name} has been removed from system!")

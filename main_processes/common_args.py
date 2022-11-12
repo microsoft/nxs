@@ -33,6 +33,11 @@ def get_common_parser():
         default=False,
         type=lambda x: (str(x).lower() == "true"),
     )
+    parser.add_argument(
+        "--enable_autoscaling",
+        default=False,
+        type=lambda x: (str(x).lower() == "true"),
+    )
 
     parser.add_argument("--tmp_dir", type=str, default="./tmp")
 

@@ -9,74 +9,62 @@ from typing import Union
 
 import fastapi
 from configs import *
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    Request,
-    Security,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import File
+from fastapi import HTTPException
+from fastapi import Request
+from fastapi import Security
+from fastapi import UploadFile
+from fastapi import status
 from fastapi.security import APIKeyHeader
 from main_processes.frontend.args import parse_args
-from main_processes.frontend.utils import (
-    async_download_to_memory,
-    download_from_direct_link,
-    download_to_memory,
-    get_db,
-    get_storage,
-)
+from main_processes.frontend.utils import async_download_to_memory
+from main_processes.frontend.utils import download_from_direct_link
+from main_processes.frontend.utils import download_to_memory
+from main_processes.frontend.utils import get_db
+from main_processes.frontend.utils import get_storage
 from nxs_libs.interface.frontend.simple_interface import (
     SimpleFrontendTaskSummaryProcessor,
-)
+)  # NOQA
 from nxs_libs.object.pipeline_runtime import NxsPipelineRuntime
 from nxs_libs.storage.nxs_blobstore import NxsAzureBlobStorage
 from nxs_libs.storage.nxs_blobstore_async import NxsAsyncAzureBlobStorage
 from nxs_types.backend import NxsBackendType
-from nxs_types.frontend import (
-    BasicResponse,
-    FrontendModelPipelineWorkloadReport,
-    FrontendWorkloadReport,
-    TaskSummary,
-)
-from nxs_types.infer import (
-    NxsInferBatchImageInputFromAzureBlobstore,
-    NxsInferBatchImageInputFromUrl,
-    NxsInferExtraParams,
-    NxsInferImageInputFromAzureBlobstore,
-    NxsInferImageInputFromUrl,
-    NxsInferInput,
-    NxsInferInputType,
-    NxsInferRequest,
-    NxsInferSingleInputFromAzureBlobstore,
-    NxsInferSingleInputFromUrl,
-    NxsInferStatus,
-    NxsInferTextInput,
-    NxsTensorsInferRequest,
-)
-from nxs_types.infer_result import (
-    NxsInferClassificationResult,
-    NxsInferResult,
-    NxsInferResultType,
-    NxsInferResultWithMetadata,
-    NxsInferSpeechTranscriptionResult,
-)
-from nxs_types.log import (
-    NxsBackendCmodelThroughputLog,
-    NxsBackendDeploymentsLog,
-    NxsBackendThroughputLog,
-    NxsSchedulerLog,
-)
-from nxs_types.message import (
-    NxsMsgPinWorkload,
-    NxsMsgReportInputWorkloads,
-    NxsMsgUnpinWorkload,
-)
+from nxs_types.frontend import BasicResponse
+from nxs_types.frontend import FrontendModelPipelineWorkloadReport
+from nxs_types.frontend import FrontendWorkloadReport
+from nxs_types.frontend import TaskSummary
+from nxs_types.infer import NxsInferBatchImageInputFromAzureBlobstore
+from nxs_types.infer import NxsInferBatchImageInputFromUrl
+from nxs_types.infer import NxsInferExtraParams
+from nxs_types.infer import NxsInferImageInputFromAzureBlobstore
+from nxs_types.infer import NxsInferImageInputFromUrl
+from nxs_types.infer import NxsInferInput
+from nxs_types.infer import NxsInferInputType
+from nxs_types.infer import NxsInferRequest
+from nxs_types.infer import NxsInferSingleInputFromAzureBlobstore
+from nxs_types.infer import NxsInferSingleInputFromUrl
+from nxs_types.infer import NxsInferStatus
+from nxs_types.infer import NxsInferTextInput
+from nxs_types.infer import NxsTensorsInferRequest
+from nxs_types.infer_result import NxsInferClassificationResult
+from nxs_types.infer_result import NxsInferResult
+from nxs_types.infer_result import NxsInferResultType
+from nxs_types.infer_result import NxsInferResultWithMetadata
+from nxs_types.infer_result import NxsInferSpeechTranscriptionResult
+from nxs_types.log import NxsBackendCmodelThroughputLog
+from nxs_types.log import NxsBackendDeploymentsLog
+from nxs_types.log import NxsBackendThroughputLog
+from nxs_types.log import NxsSchedulerLog
+from nxs_types.message import NxsMsgPinWorkload
+from nxs_types.message import NxsMsgReportInputWorkloads
+from nxs_types.message import NxsMsgUnpinWorkload
 from nxs_types.model import *
 from nxs_utils.common import *
-from nxs_utils.logging import NxsLogLevel, setup_logger, write_log
+from nxs_utils.logging import NxsLogLevel
+from nxs_utils.logging import setup_logger
+from nxs_utils.logging import write_log
 from nxs_utils.nxs_helper import *
 
 # setup global variables
@@ -112,8 +100,7 @@ async def check_api_key(api_key_header: str = Security(api_key_header)):
 
     if api_key_header != args.api_key:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="wrong api key",
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="wrong api key",
         )
 
     return True
@@ -221,9 +208,7 @@ def task_monitor_thread():
 
             if key not in task_dict:
                 task_dict[key] = FrontendModelPipelineWorkloadReport(
-                    pipeline_uuid=pipeline_uuid,
-                    session_uuid=session_uuid,
-                    fps=0,
+                    pipeline_uuid=pipeline_uuid, session_uuid=session_uuid, fps=0,
                 )
                 task_ts0_dict[key] = time.time()
                 task_fps_dict[key] = 0
@@ -335,8 +320,7 @@ if shared_queue_pusher is None:
 
 @router.post("/sessions/create")
 async def create_session(
-    extra_params_json_str: str = "{}",
-    authenticated: bool = Depends(check_api_key),
+    extra_params_json_str: str = "{}", authenticated: bool = Depends(check_api_key),
 ):
     global redis_kv_server
 
@@ -344,8 +328,7 @@ async def create_session(
         extra_params = json.loads(extra_params_json_str)
     except:
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "extra_params_json_str has to be json string.",
+            status.HTTP_400_BAD_REQUEST, "extra_params_json_str has to be json string.",
         )
 
     session_uuid = generate_uuid()
@@ -412,8 +395,7 @@ async def submit_image_task(
 
 @router.post("/images/infer-from-url", response_model=NxsInferResult)
 async def submit_image_task_from_url(
-    infer_info: NxsInferImageInputFromUrl,
-    authenticated: bool = Depends(check_api_key),
+    infer_info: NxsInferImageInputFromUrl, authenticated: bool = Depends(check_api_key),
 ):
     return await process_image_task_from_url(
         infer_info.pipeline_uuid,
@@ -554,8 +536,7 @@ async def process_image_task_from_azure_blobstore(
 
 @router.post("/texts/infer", response_model=NxsInferResult)
 async def submit_text_task(
-    infer_info: NxsInferTextInput,
-    authenticated: bool = Depends(check_api_key),
+    infer_info: NxsInferTextInput, authenticated: bool = Depends(check_api_key),
 ):
     session_uuid: str = "global"
     if infer_info.session_uuid is not None:
@@ -571,9 +552,7 @@ async def submit_text_task(
         )
     except Exception as e:
         write_log(
-            "/v2/texts/infer",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/v2/texts/infer", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
         return NxsInferResult(
             type=NxsInferResultType.CUSTOM,
@@ -606,9 +585,7 @@ async def submit_audio_task_from_file(
         extra_params = json.loads(extra_params_json_str)
     except Exception as e:
         write_log(
-            "/audio/file",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/audio/file", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
 
     extra_params = NxsInferExtraParams(**extra_params)
@@ -627,9 +604,7 @@ async def submit_audio_task_from_file(
         )
     except Exception as e:
         write_log(
-            "/audio/file",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/audio/file", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -662,9 +637,7 @@ async def submit_audio_task_from_url(
         )
     except Exception as e:
         write_log(
-            "/audio/url",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/audio/url", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -705,17 +678,14 @@ async def submit_audio_task_from_azure_blobstore(
         )
     except Exception as e:
         write_log(
-            "/audio/blobstore",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/audio/blobstore", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/tensors/infer", response_model=NxsInferResult)
 async def submit_task_tensors(
-    request: Request,
-    authenticated: bool = Depends(check_api_key),
+    request: Request, authenticated: bool = Depends(check_api_key),
 ):
     data: bytes = await request.body()
     infer_request = pickle.loads(data)
@@ -730,9 +700,7 @@ async def submit_task_tensors(
             # )
 
             write_log(
-                "/v2/tensors/infer",
-                "Exception: {}".format(str(e)),
-                NxsLogLevel.INFO,
+                "/v2/tensors/infer", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
             )
 
             return NxsInferResult(
@@ -753,9 +721,7 @@ async def submit_task_tensors(
         error_msg = "request should be a pickled bytes of NxsTensorsInferRequest instance or a pickled bytes of NxsTensorsInferRequest dict."
 
         write_log(
-            "/v2/tensors/infer",
-            "Exception: {}".format(error_msg),
-            NxsLogLevel.INFO,
+            "/v2/tensors/infer", "Exception: {}".format(error_msg), NxsLogLevel.INFO,
         )
 
         return NxsInferResult(
@@ -771,9 +737,7 @@ async def submit_task_tensors(
         res = await _infer_tensors(infer_request)
     except Exception as e:
         write_log(
-            "/v2/tensors/infer",
-            "Exception: {}".format(str(e)),
-            NxsLogLevel.INFO,
+            "/v2/tensors/infer", "Exception: {}".format(str(e)), NxsLogLevel.INFO,
         )
 
         return NxsInferResult(
@@ -790,8 +754,7 @@ if args.enable_benchmark_api:
 
     @router.post("/benchmarks/redis")
     async def submit_benchmark_redis_task(
-        file: UploadFile = File(...),
-        authenticated: bool = Depends(check_api_key),
+        file: UploadFile = File(...), authenticated: bool = Depends(check_api_key),
     ):
         global shared_queue_pusher
         image_bin = await file.read()
@@ -820,7 +783,8 @@ if args.enable_benchmark_api:
         return {"status": "COMPLETED"}
 
 
-if args.enable_scaling:
+if args.enable_manual_scaling and not args.enable_autoscaling:
+    # only enable manual scaling when autoscaling is disabled
 
     """
     def get_num_deployment_replicas(deployment_name: str) -> int:
@@ -858,7 +822,8 @@ if args.enable_scaling:
         deployment_items = []
 
         try:
-            from kubernetes import client, config
+            from kubernetes import client
+            from kubernetes import config
 
             config.load_kube_config()
 
@@ -867,8 +832,7 @@ if args.enable_scaling:
             deployment_items = deployment.items
         except Exception as e:
             raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Internal error. Please try again later.",
+                status.HTTP_400_BAD_REQUEST, "Internal error. Please try again later.",
             )
 
         for item in deployment_items:
@@ -897,8 +861,7 @@ if args.enable_scaling:
     ):
         if num_backends < 0:
             raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "num_backends must be at least 0",
+                status.HTTP_400_BAD_REQUEST, "num_backends must be at least 0",
             )
 
         (
@@ -918,7 +881,8 @@ if args.enable_scaling:
         deployment_items = []
 
         try:
-            from kubernetes import client, config
+            from kubernetes import client
+            from kubernetes import config
 
             config.load_kube_config()
 
@@ -927,8 +891,7 @@ if args.enable_scaling:
             deployment_items = deployment.items
         except Exception as e:
             raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Internal error. Please try again later.",
+                status.HTTP_400_BAD_REQUEST, "Internal error. Please try again later.",
             )
 
         found_gpu_backend_deployment = False
@@ -971,9 +934,7 @@ def get_backend_logs() -> List[NxsBackendThroughputLog]:
 
 
 @router.get("/monitoring/backends", response_model=List[NxsBackendThroughputLog])
-async def get_monitoring_backend_reports(
-    authenticated: bool = Depends(check_api_key),
-):
+async def get_monitoring_backend_reports(authenticated: bool = Depends(check_api_key),):
     global redis_kv_server, backend_infos, backend_infos_t0
 
     logs = get_backend_logs()
@@ -984,14 +945,12 @@ async def get_monitoring_backend_reports(
     return logs
 
 
-if args.enable_scaling:
+if args.enable_manual_scaling:
 
     @router.get(
         "/monitoring/backend_deployments", response_model=NxsBackendDeploymentsLog
     )
-    async def get_backend_deployments(
-        authenticated: bool = Depends(check_api_key),
-    ):
+    async def get_backend_deployments(authenticated: bool = Depends(check_api_key),):
         num_requested_cpu_backends = 0
         num_requested_gpu_backends = 0
         num_available_cpu_backends = 0
@@ -1151,11 +1110,7 @@ async def _infer_single(
         session_uuid=session_uuid,
         exec_pipelines=pipeline_uuids,
         inputs=[
-            NxsInferInput(
-                name=model_input.name,
-                type=model_input_type,
-                data=data,
-            )
+            NxsInferInput(name=model_input.name, type=model_input_type, data=data,)
         ],
         extra_preproc_params=json.dumps(users_extra_params.preproc),
         extra_transform_params=json.dumps(users_extra_params.transform),

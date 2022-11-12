@@ -1,16 +1,16 @@
 import math
-from typing import List, Tuple, Dict
+from typing import Dict
+from typing import List
+from typing import Tuple
 
 from nxs_libs.interface.scheduling_policy import BaseSchedulingPolicy
 from nxs_types import scheduling_data
 from nxs_types.backend import BackendInfo
-from nxs_types.model import (
-    LatencyMeasurement,
-    NxsCompositoryModel,
-    NxsModel,
-    NxsPipelineInfo,
-    ProfileUnit,
-)
+from nxs_types.model import LatencyMeasurement
+from nxs_types.model import NxsCompositoryModel
+from nxs_types.model import NxsModel
+from nxs_types.model import NxsPipelineInfo
+from nxs_types.model import ProfileUnit
 from nxs_types.scheduling_data import *
 
 
@@ -40,9 +40,7 @@ class RequiredResouce:
         self.min_gpu_mem: float = 0
 
 
-class SimpleSchedulingPolicyv2(BaseSchedulingPolicy):
-    MAX_MODELS_PER_BACKEND = 5
-
+class SimpleSchedulingPolicyv2(BaseSchedulingPolicy):    
     def __init__(self) -> None:
         super().__init__()
 
