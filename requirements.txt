@@ -26,7 +26,7 @@ pydantic==1.8.2
 pyhumps==3.0.2
 lru-dict==1.1.7
 onnxruntime-gpu==1.10
-tensorflow==2.7.2
+tensorflow==2.9.3
 fastapi==0.72.0
 #uvicorn==0.14.0
 uvicorn[standard]==0.17.0
