@@ -113,7 +113,7 @@ resource "azurerm_cosmosdb_mongo_collection" "maindb_pipline_collection" {
 }
 
 # create Stats collection
-resource "azurerm_cosmosdb_mongo_collection" "maindb_pipline_collection" {
+resource "azurerm_cosmosdb_mongo_collection" "maindb_stat_collection" {
   name                = "Stats"
   resource_group_name = azurerm_cosmosdb_account.nxs_mongodb.resource_group_name
   account_name        = azurerm_cosmosdb_account.nxs_mongodb.name
