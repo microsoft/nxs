@@ -11,7 +11,7 @@ resource "azurerm_kubernetes_cluster" "nxs_aks" {
   location            = var.base.location
   resource_group_name = var.base.rg_name
   dns_prefix          = "nxs-aks"
-  kubernetes_version  = "1.21.9"
+  kubernetes_version  = "1.23.12"
 
   default_node_pool {
     name       = "cpupool1"
