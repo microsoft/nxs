@@ -9,6 +9,7 @@ from typing import Dict, List
 
 import cv2
 import numpy as np
+
 from configs import BACKEND_INTERNAL_CONFIG, NXS_BACKEND_CONFIG, NXS_CONFIG
 from nxs_libs.interface.backend.input import BackendInputInterfaceFactory
 from nxs_libs.interface.backend.output import BackendOutputInterfaceFactory
@@ -179,6 +180,15 @@ class BackendPreprocessingProcess:
                             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                             assert img is not None
                             decoded_inputs_dict[request_input.name] = img
+
+                            # TODO: find better way to map encoded image to decoded_inputs_dict
+                            if len(data.inputs) == 1:
+                                key_name = (
+                                    "encoded_image"
+                                    if request_input.name != "encoded_image"
+                                    else f"{request_input.name}_encoded"
+                                )
+                                decoded_inputs_dict[key_name] = request_input.data
                         elif request_input.type == NxsInferInputType.PICKLED_DATA:
                             decoded_inputs_dict[request_input.name] = pickle.loads(
                                 request_input.data
@@ -317,8 +327,7 @@ class BackendPreprocessingProcess:
                     self.request_exiting(metadata["extra"])
 
                 self.output.put_batch(
-                    self.next_topic_name,
-                    [(transformed_batch, metadatas)],
+                    self.next_topic_name, [(transformed_batch, metadatas)],
                 )
 
             if time.time() - tt0 > 5:
