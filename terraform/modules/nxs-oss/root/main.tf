@@ -93,7 +93,7 @@ module "azure_redis" {
 }
 
 # this module deploys oss redis into our aks cluster
-module "oss_redis" {
+module "redis" {
   source        = "../redis_oss"
   base          = local.base_config
   aks_info      = module.aks.aks_info
@@ -117,10 +117,10 @@ module "keyvault_secrets" {
     MongoDbMaindbName      = module.db.db_info.nxs_mongodb_maindb_name
     BlobstoreConnectionStr = module.storage.storage_info.nxs_storage_connection_string
     BlobstoreContainerName = module.storage.storage_info.nxs_storage_container_name
-    RedisAddress           = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_address : module.oss_redis.redis_info.redis_address
-    RedisPort              = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_port : module.oss_redis.redis_info.redis_port
-    RedisPassword          = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_password : module.oss_redis.redis_info.redis_password
-    RedisUseSSL            = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_use_ssl : module.oss_redis.redis_info.redis_use_ssl
+    RedisAddress           = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_address : module.redis.redis_info.redis_address
+    RedisPort              = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_port : module.redis.redis_info.redis_port
+    RedisPassword          = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_password : module.redis.redis_info.redis_password
+    RedisUseSSL            = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info.redis_use_ssl : module.redis.redis_info.redis_use_ssl
     NxsUrl                 = "https://${module.aks.aks_info.aks_domain_name_fqdn}"
     NxsSwaggerUrl          = "https://${module.aks.aks_info.aks_domain_name_fqdn}/docs"
     AksKubeConfig          = module.aks.aks_info.aks_kube_config
@@ -132,7 +132,7 @@ module "aks_configs" {
   base                 = local.base_config
   aks_info             = module.aks.aks_info
   keyvault_info        = module.keyvault.keyvault_info
-  redis_info           = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info : module.oss_redis.redis_info
+  redis_info           = var.nxs_config.redis.use_azure_redis_cache ? module.azure_redis.redis_info : module.redis.redis_info
   ssl_cert_owner_email = var.base.ssl_cert_owner_email
   acr_login_server     = var.nxs_config.acr.acr_login_server
   acr_user_name        = var.nxs_config.acr.acr_username
