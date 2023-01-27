@@ -20,7 +20,7 @@ decorator==4.4.2
 attrs==20.3.0
 scipy==1.6.1
 pytest==6.2.2
-onnx==1.9.0
+onnx==1.13.0
 tf2onnx==1.8.5
 pydantic==1.8.2
 pyhumps==3.0.2
