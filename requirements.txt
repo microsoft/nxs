@@ -18,7 +18,7 @@ shapely==1.7.1
 pyzmq==20.0.0
 decorator==4.4.2
 attrs==20.3.0
-scipy==1.6.1
+scipy==1.10.0
 pytest==6.2.2
 onnx==1.9.0
 tf2onnx==1.8.5
