@@ -34,7 +34,7 @@ torch==1.10.1
 torchvision==0.11.2
 transformers>=4.19.0
 SentencePiece==0.1.96
-Pillow==9.0.1
+Pillow==10.0.1
 aiofile==3.7.4
 kubernetes==17.17.0
 ffmpeg-python==0.2.0
